@@ -1,6 +1,7 @@
 import { conversionBrief } from "@/lib/categories/conversion";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
 import { vocabFor } from "@/lib/categories/vocab";
+import { geminiGenerate } from "@/lib/gemini";
 import type { Offer } from "@/lib/sales/offer";
 import type { CadenceStep, Etapa, Objecion, SalesPlan } from "@/lib/sales/types";
 
@@ -107,31 +108,14 @@ async function geminiPlan(input: PlanInput): Promise<SalesPlan> {
     2,
   );
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: COPY_RULES }] },
-        contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: {
-          temperature: 0.8,
-          maxOutputTokens: 6000,
-          responseMimeType: "application/json",
-          responseSchema: PLAN_SCHEMA,
-        },
-      }),
-      signal: AbortSignal.timeout(90_000),
-    },
-  );
-  if (!res.ok) throw new Error(await res.text());
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("");
-  if (!text) throw new Error("Gemini sin plan");
+  const text = await geminiGenerate({
+    system: COPY_RULES,
+    user,
+    temperature: 0.8,
+    maxOutputTokens: 6000,
+    responseMimeType: "application/json",
+    responseSchema: PLAN_SCHEMA,
+  });
   const parsed = JSON.parse(text) as {
     pasos: Array<{ etapa: Etapa; mensaje: string; tip: string }>;
     objeciones: Objecion[];

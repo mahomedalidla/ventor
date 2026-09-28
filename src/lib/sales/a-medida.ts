@@ -1,6 +1,7 @@
 import { conversionProfile } from "@/lib/categories/conversion";
 import type { CategoryId } from "@/lib/categories/playbooks";
 import { vocabFor } from "@/lib/categories/vocab";
+import { geminiGenerate, geminiKey } from "@/lib/gemini";
 import { complejidadPorReglas, type AMedida, type Complejidad } from "@/lib/sales/offer";
 
 type Input = {
@@ -35,8 +36,7 @@ const SCHEMA = {
 
 /** Define alcance y complejidad de un producto fuera de catálogo (el precio sale de la tabla por complejidad). */
 export async function estimateAMedida(input: Input): Promise<Omit<AMedida, "confirmado">> {
-  const key = process.env.GEMINI_API_KEY;
-  if (key && !key.includes("your_gemini")) {
+  if (geminiKey()) {
     try {
       return await viaGemini(input);
     } catch {
@@ -56,31 +56,14 @@ async function viaGemini(input: Input): Promise<Omit<AMedida, "confirmado">> {
     objetivo_del_rubro: conv.objetivo,
     cliente_final: vocabFor(input.playbookId).cliente,
   });
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 2000,
-          responseMimeType: "application/json",
-          responseSchema: SCHEMA,
-        },
-      }),
-      signal: AbortSignal.timeout(45_000),
-    },
-  );
-  if (!res.ok) throw new Error(await res.text());
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("");
-  if (!text) throw new Error("Gemini sin respuesta");
+  const text = await geminiGenerate({
+    system: SYSTEM,
+    user,
+    temperature: 0.4,
+    maxOutputTokens: 2000,
+    responseMimeType: "application/json",
+    responseSchema: SCHEMA,
+  });
   const p = JSON.parse(text) as {
     complejidad: Complejidad;
     que_es: string;

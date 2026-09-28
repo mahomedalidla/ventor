@@ -122,9 +122,20 @@ export function DeliverableDemoPanel({
       if (!res.ok) {
         setError(data.error ?? "No se pudo generar");
       } else {
-        setInfo(
-          `${data.engine === "gemini" ? "Diseñado con Gemini" : "Plantilla base (Gemini no respondió)"} · plan ${PLAN_NOMBRE[data.plan as PlanId] ?? "Recomendado"} · ${data.fotos} fotos · ${data.logo ? "logo encontrado" : "sin logo (tipográfico)"}`,
-        );
+        if (data.engine === "gemini") {
+          setInfo(
+            `Diseñado con Gemini · plan ${PLAN_NOMBRE[data.plan as PlanId] ?? "Recomendado"} · ${data.fotos} fotos · ${data.logo ? "logo encontrado" : "sin logo (tipográfico)"}`,
+          );
+        } else {
+          setError(
+            data.aviso
+              ? `${data.aviso} Mientras tanto usé la plantilla del rubro (ya no es la misma para todos).`
+              : "Gemini no respondió. Usé la plantilla del rubro.",
+          );
+          setInfo(
+            `Plantilla del rubro · plan ${PLAN_NOMBRE[data.plan as PlanId] ?? "Recomendado"} · ${data.fotos} fotos`,
+          );
+        }
         router.refresh();
       }
     } catch {

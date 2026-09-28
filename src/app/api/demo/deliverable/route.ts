@@ -4,7 +4,7 @@ import {
   pickDeliverableType,
   type DeliverableTipo,
 } from "@/lib/demo/deliverable";
-import { cleanAjustes } from "@/lib/demo/ajustes";
+import { applyAjustesToAssets, cleanAjustes } from "@/lib/demo/ajustes";
 import { isDemoMockup } from "@/lib/demo/types";
 import { alcanceDe, isPlanId, PLAN_NOMBRE, type PlanId } from "@/lib/sales/alcance";
 import type { Offer } from "@/lib/sales/offer";
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       ? op.plan_elegido
       : "recomendado";
 
-  const { html, engine } = await buildDeliverable({
+  const { html, engine, aviso } = await buildDeliverable({
     lead: {
       ...lead,
       nombre: aj.nombre ?? lead.nombre,
@@ -114,10 +114,9 @@ export async function POST(request: Request) {
     producto,
     mockup: isDemoMockup(op.demo_mockup) ? op.demo_mockup : null,
     assets: {
-      ...assets,
+      ...applyAjustesToAssets(assets, aj),
       hours: aj.horario ? [aj.horario] : assets.hours,
       address: aj.direccion ?? assets.address,
-      theme_color: aj.color ?? assets.theme_color,
     },
     tipo,
     alcance: alcanceDe(tipo, plan),
@@ -157,6 +156,7 @@ export async function POST(request: Request) {
     plan,
     fotos: assets.photos.length,
     logo: Boolean(assets.logo_url),
+    aviso: aviso ?? null,
   });
 }
 

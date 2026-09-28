@@ -10,9 +10,11 @@ export type DemoReview = {
 
 export type DemoAssets = {
   logo_url: string | null;
-  logo_source: "sitio" | "red_social" | "favicon" | null;
+  logo_source: "sitio" | "red_social" | "favicon" | "manual" | null;
   photos: DemoPhoto[];
   theme_color: string | null;
+  theme_secondary: string | null;
+  theme_tertiary: string | null;
   address: string | null;
   maps_uri: string | null;
   hours: string[];
@@ -49,6 +51,8 @@ export async function gatherDemoAssets(
     logo_source: null,
     photos: [],
     theme_color: null,
+    theme_secondary: null,
+    theme_tertiary: null,
     address: (meta.direccion as string) ?? null,
     maps_uri: (meta.google_maps_uri as string) ?? null,
     hours: [],

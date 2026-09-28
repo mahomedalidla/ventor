@@ -16,6 +16,7 @@ import {
   type FaqItem,
 } from "@/lib/demo/templates";
 import type { DemoMockup } from "@/lib/demo/types";
+import { geminiGenerate, geminiKey, humanizeGeminiError } from "@/lib/gemini";
 import { waLink } from "@/lib/phone";
 import type { Alcance } from "@/lib/sales/alcance";
 
@@ -44,6 +45,7 @@ export type DeliverableInput = {
 export type DeliverableResult = {
   html: string;
   engine: "gemini" | "plantilla";
+  aviso?: string;
 };
 
 /** Todo mensaje que sale de la página empieza igual: el dueño reconoce los clientes que trajo. */
@@ -64,16 +66,23 @@ export function pickDeliverableType(producto: string | null | undefined): Delive
 export async function buildDeliverable(
   input: DeliverableInput,
 ): Promise<DeliverableResult> {
-  const key = process.env.GEMINI_API_KEY;
-  if (key && !key.includes("your_gemini")) {
+  if (geminiAvailable()) {
     try {
       const html = await geminiHtml(input);
       return { html, engine: "gemini" };
-    } catch {
-      // fallback a plantilla
+    } catch (e) {
+      return {
+        html: templateHtml(input),
+        engine: "plantilla",
+        aviso: humanizeGeminiError(e),
+      };
     }
   }
-  return { html: templateHtml(input), engine: "plantilla" };
+  return {
+    html: templateHtml(input),
+    engine: "plantilla",
+    aviso: "Falta GEMINI_API_KEY. La página salió con plantilla del rubro.",
+  };
 }
 
 const LANDING_RULES = `REGLA DE NEGOCIO (no negociable): la landing debe ser IMPACTANTE, con muchos efectos "WOW", nivel agencia premium.
@@ -140,7 +149,7 @@ Reglas de contenido:
 - Imágenes: usa ÚNICAMENTE las URLs dadas en "imagenes" y "logo". Nunca inventes URLs de imágenes ni uses placeholders/unsplash. Si no hay logo, crea un logotipo tipográfico elegante con las iniciales.
 - Reseñas: solo citas reales de la lista dada; puedes recortarlas, nunca inventarlas.
 - Nada de lorem ipsum, "Negocio demo", "Cliente ejemplo". Nada de paleta púrpura genérica.
-- Paleta: deriva del theme_color/logo si existe, si no de la ambientación del rubro y la zona (costa nayarita, sierra, pueblo mágico, ciudad).
+- Paleta: si hay "paleta_marca", ÚSALA (principal = botones/CTA/--a, secundario = fondos de tarjeta/secciones/--b, acento = estrellas/detalles/--c). Si no, deriva del logo o de la zona.
 - Tipografía: puedes usar Google Fonts vía <link>. No uses otros recursos externos.
 - Mobile-first, se ve perfecto en 390px y en desktop.
 ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: <title> "{Nombre} | {rubro} en {zona}, Nayarit" (≤60 caracteres), meta description con zona + beneficio (≤155), Open Graph (og:title, og:description, og:image con la foto principal), un solo <h1> con el nombre, y JSON-LD schema.org del tipo correcto (Restaurant, Hotel, Dentist/MedicalClinic, BeautySalon, AutoRepair, ExerciseGym, Store o LocalBusiness) con name, address, telephone, url, image, openingHours y aggregateRating SOLO si hay datos. No pongas meta robots.
@@ -173,6 +182,13 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
         sitio_descripcion: assets.website_description,
         theme_color: assets.theme_color,
       },
+      paleta_marca: assets.theme_color
+        ? {
+            principal: assets.theme_color,
+            secundario: assets.theme_secondary,
+            acento: assets.theme_tertiary,
+          }
+        : null,
       logo: assets.logo_url,
       imagenes: assets.photos.map((p) => p.url),
       reseñas_reales: assets.reviews
@@ -209,54 +225,13 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
     2,
   );
 
-  const html = extractHtml(await geminiText(system, user, 0.9, 32000));
+  const html = extractHtml(await geminiGenerate({ system, user, temperature: 0.9, maxOutputTokens: 32000 }));
   if (!html) throw new Error("HTML inválido o truncado");
   return html;
 }
 
 export function geminiAvailable(): boolean {
-  const key = process.env.GEMINI_API_KEY;
-  return Boolean(key && !key.includes("your_gemini"));
-}
-
-async function geminiText(
-  system: string,
-  user: string,
-  temperature: number,
-  maxOutputTokens: number,
-): Promise<string> {
-  const model =
-    process.env.GEMINI_DEMO_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: {
-          temperature,
-          maxOutputTokens,
-          responseMimeType: "text/plain",
-        },
-      }),
-      signal: AbortSignal.timeout(240_000),
-    },
-  );
-  if (!res.ok) throw new Error(await res.text());
-
-  const data = (await res.json()) as {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string; thought?: boolean }> };
-    }>;
-  };
-  const raw = data.candidates?.[0]?.content?.parts
-    ?.filter((p) => !p.thought)
-    .map((p) => p.text ?? "")
-    .join("");
-  if (!raw) throw new Error("Gemini sin respuesta");
-  return raw;
+  return Boolean(geminiKey());
 }
 
 const EDIT_SYSTEM = `Eres un frontend senior editando la página REAL de un negocio local (HTML autocontenido).
@@ -274,7 +249,9 @@ export async function editDeliverableHtml(
 ): Promise<string> {
   const user = JSON.stringify({ instruccion, imagenes_permitidas: imagenes }, null, 2) +
     "\n\nHTML ACTUAL:\n" + html;
-  const out = extractHtml(await geminiText(EDIT_SYSTEM, user, 0.3, 60000));
+  const out = extractHtml(
+    await geminiGenerate({ system: EDIT_SYSTEM, user, temperature: 0.3, maxOutputTokens: 60000 }),
+  );
   if (!out || out.length < html.length * 0.4) throw new Error("La edición salió incompleta; intenta de nuevo");
   return out;
 }
@@ -349,6 +326,14 @@ function baseData(input: DeliverableInput): DeliverableData {
     input.assets.theme_color && /^#[0-9a-f]{6}$/i.test(input.assets.theme_color)
       ? input.assets.theme_color
       : m?.palette?.accent ?? "#0b6e4f";
+  const accent2 =
+    input.assets.theme_secondary && /^#[0-9a-f]{6}$/i.test(input.assets.theme_secondary)
+      ? input.assets.theme_secondary
+      : m?.palette?.text ?? "#1c1914";
+  const accent3 =
+    input.assets.theme_tertiary && /^#[0-9a-f]{6}$/i.test(input.assets.theme_tertiary)
+      ? input.assets.theme_tertiary
+      : m?.palette?.muted ?? "#d4a017";
   const cta = m?.cta_label ?? conv.cta_primario;
   return {
     nombre: input.lead.nombre,
@@ -372,6 +357,8 @@ function baseData(input: DeliverableInput): DeliverableData {
           input.assets.reviews.map((r) => r.text).join(" "),
         ),
     accent,
+    accent2,
+    accent3,
     wa_url: waLink(input.lead.telefono, webPrefill(m)),
     cta_label: cta,
     assets: input.assets,

@@ -1,4 +1,5 @@
-import { cleanAjustes, instruccionPorCambios, swapPhone } from "@/lib/demo/ajustes";
+import type { DemoAssets } from "@/lib/demo/assets";
+import { cleanAjustes, instruccionPorCambios, swapBrand, swapPhone } from "@/lib/demo/ajustes";
 import { toWaNumber } from "@/lib/phone";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
@@ -56,34 +57,51 @@ export async function POST(request: Request) {
 
   const { data: deliverables } = await supabase
     .from("demo_deliverables")
-    .select("id, tipo, html")
+    .select("id, tipo, html, assets")
     .eq("opportunity_id", op.id);
 
   const oldTel = prev.whatsapp ?? leadTel;
   const newTel = next.whatsapp ?? leadTel;
+  const brandChanged =
+    next.logo_url !== prev.logo_url ||
+    next.color !== prev.color ||
+    next.color_sec !== prev.color_sec ||
+    next.color_ter !== prev.color_ter;
   let parchados = 0;
-  if (newTel && toWaNumber(oldTel) !== toWaNumber(newTel)) {
-    for (const d of deliverables ?? []) {
-      const html = swapPhone(d.html as string, oldTel, newTel);
-      if (html !== d.html) {
-        await supabase
-          .from("demo_deliverables")
-          .update({
-            html,
-            html_anterior: d.html,
-            ultimo_cambio: "WhatsApp actualizado",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", d.id);
-        parchados++;
-      }
+  for (const d of deliverables ?? []) {
+    let html = d.html as string;
+    if (newTel && toWaNumber(oldTel) !== toWaNumber(newTel)) {
+      html = swapPhone(html, oldTel, newTel);
     }
+    if (brandChanged) html = swapBrand(html, next);
+    if (html === d.html && !brandChanged) continue;
+    const assets = {
+      ...((d.assets as DemoAssets | null) ?? {}),
+      ...(next.logo_url ? { logo_url: next.logo_url, logo_source: "manual" } : {}),
+      ...(next.color ? { theme_color: next.color } : {}),
+      ...(next.color_sec ? { theme_secondary: next.color_sec } : {}),
+      ...(next.color_ter ? { theme_tertiary: next.color_ter } : {}),
+    };
+    await supabase
+      .from("demo_deliverables")
+      .update({
+        html,
+        assets,
+        html_anterior: d.html,
+        ultimo_cambio: brandChanged ? "Marca actualizada" : "WhatsApp actualizado",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", d.id);
+    parchados++;
   }
 
   return NextResponse.json({
     ok: true,
     parchados,
-    instruccion: instruccionPorCambios(prev, next),
+    instruccion: instruccionPorCambios(
+      prev,
+      { ...next, color: brandChanged ? undefined : next.color, logo_url: brandChanged ? undefined : next.logo_url },
+    ),
     tipos: (deliverables ?? []).map((d) => d.tipo),
   });
 }

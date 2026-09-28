@@ -84,7 +84,7 @@ export default async function OportunidadPage({
   const [{ data: deliverables }, { data: signals }, events] = await Promise.all([
     supabase
       .from("demo_deliverables")
-      .select("tipo, public_slug, generated_at, updated_at, engine, plan_id, ultimo_cambio")
+      .select("tipo, public_slug, generated_at, updated_at, engine, plan_id, ultimo_cambio, assets")
       .eq("opportunity_id", id),
     supabase.from("signals").select("tipo_signal").eq("lead_id", lead?.id ?? ""),
     fetchEventsByOpportunity(supabase, [id]),
@@ -250,6 +250,13 @@ export default async function OportunidadPage({
                 initial={ajustes}
                 detectado={{ nombre: lead?.nombre ?? "", telefono: lead?.telefono ?? null }}
                 hasDeliverables={(deliverables?.length ?? 0) > 0}
+                logoDetectado={
+                  ajustes.logo_url ??
+                  (deliverables ?? [])
+                    .map((d) => (d as { assets?: { logo_url?: string } }).assets?.logo_url)
+                    .find((u): u is string => Boolean(u)) ??
+                  null
+                }
               />
             </div>
           </details>

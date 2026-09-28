@@ -10,6 +10,7 @@ import {
   type InferSignalRow,
   type InferredOpportunity,
 } from "@/lib/inference/prompt";
+import { geminiGenerate, geminiKey } from "@/lib/gemini";
 import { ruleBasedInfer } from "@/lib/inference/rule-fallback";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -257,8 +258,7 @@ export async function inferOpportunitiesForLead(
 async function runInference(
   ctx: InferContext,
 ): Promise<{ opportunities: InferredOpportunity[]; engine: InferenceEngine }> {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey && !geminiKey.includes("your_gemini")) {
+  if (geminiKey()) {
     try {
       return { opportunities: await callGemini(ctx), engine: "gemini" };
     } catch {
@@ -280,38 +280,14 @@ async function runInference(
 
 async function callGemini(ctx: InferContext): Promise<InferredOpportunity[]> {
   const { system, user } = buildInferencePrompt(ctx);
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: user }] }],
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 3072,
-        responseMimeType: "application/json",
-        responseSchema: GEMINI_OPPORTUNITY_SCHEMA,
-      },
-    }),
+  const text = await geminiGenerate({
+    system,
+    user,
+    temperature: 0.4,
+    maxOutputTokens: 3072,
+    responseMimeType: "application/json",
+    responseSchema: GEMINI_OPPORTUNITY_SCHEMA,
   });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gemini error: ${detail}`);
-  }
-
-  const data = (await res.json()) as {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> };
-    }>;
-  };
-  const text = data.candidates?.[0]?.content?.parts
-    ?.map((p) => p.text ?? "")
-    .join("");
-  if (!text) throw new Error("Gemini sin texto");
   return parseLlmOpportunities(text);
 }
 

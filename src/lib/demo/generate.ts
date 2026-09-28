@@ -1,6 +1,7 @@
 import { conversionBrief, conversionProfile } from "@/lib/categories/conversion";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
 import type { DemoMockup } from "@/lib/demo/types";
+import { geminiGenerate, geminiKey } from "@/lib/gemini";
 import type { InferLeadRow, InferSignalRow } from "@/lib/inference/prompt";
 
 type DemoInput = {
@@ -16,8 +17,7 @@ type DemoInput = {
 export async function generateGenuineDemo(
   input: DemoInput,
 ): Promise<DemoMockup> {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey && !geminiKey.includes("your_gemini")) {
+  if (geminiKey()) {
     try {
       return await callGeminiDemo(input);
     } catch {
@@ -86,35 +86,14 @@ Responde SOLO JSON con el schema pedido.`;
     2,
   );
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: user }] }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 4096,
-        responseMimeType: "application/json",
-        responseSchema: DEMO_SCHEMA,
-      },
-    }),
+  const text = await geminiGenerate({
+    system,
+    user,
+    temperature: 0.7,
+    maxOutputTokens: 4096,
+    responseMimeType: "application/json",
+    responseSchema: DEMO_SCHEMA,
   });
-
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
-
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = data.candidates?.[0]?.content?.parts
-    ?.map((p) => p.text ?? "")
-    .join("");
-  if (!text) throw new Error("Gemini sin demo");
 
   const parsed = JSON.parse(text) as DemoMockup;
   return sanitizeDemo(parsed, input);
