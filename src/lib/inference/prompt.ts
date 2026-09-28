@@ -159,7 +159,7 @@ Reglas de DEMO / pitch (obligatorias en cada oportunidad):
         producto_prioridad: playbook.producto_prioridad,
         pricing_categoria: playbook.pricing_categoria,
       },
-      conversion_rubro: conversionBrief(playbook.id),
+      conversion_rubro: conversionBrief(playbook.id, input.lead.tipo_negocio),
       signals: friction,
       catalogo_productos: input.products,
       pricing_baseline: input.pricing,

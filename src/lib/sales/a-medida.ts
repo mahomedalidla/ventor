@@ -47,7 +47,7 @@ export async function estimateAMedida(input: Input): Promise<Omit<AMedida, "conf
 }
 
 async function viaGemini(input: Input): Promise<Omit<AMedida, "confirmado">> {
-  const conv = conversionProfile(input.playbookId);
+  const conv = conversionProfile(input.playbookId, input.rubro);
   const user = JSON.stringify({
     producto_propuesto: input.producto,
     rubro: input.rubro,

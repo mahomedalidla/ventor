@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { PhotoSlot } from "@/lib/demo/slots";
+
 export type DemoPhoto = { url: string; label: string };
 
 export type DemoReview = {
@@ -24,6 +26,7 @@ export type DemoAssets = {
   editorial_summary: string | null;
   website_title: string | null;
   website_description: string | null;
+  slots?: PhotoSlot[];
 };
 
 type LeadForAssets = {

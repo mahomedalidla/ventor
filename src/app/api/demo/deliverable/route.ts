@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       ? op.plan_elegido
       : "recomendado";
 
-  const { html, engine, aviso } = await buildDeliverable({
+  const { html, engine, aviso, slots } = await buildDeliverable({
     lead: {
       ...lead,
       nombre: aj.nombre ?? lead.nombre,
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       tipo,
       html,
       public_slug: slug,
-      assets,
+      assets: { ...assets, slots },
       engine,
       plan_id: plan,
       html_anterior: sameTipo?.html ?? null,

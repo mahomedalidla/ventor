@@ -87,7 +87,7 @@ export function ruleBasedInfer(input: {
 
   const nombre = input.lead.nombre;
   const zona = input.lead.zona ?? "la zona";
-  const conv = conversionProfile(playbook.id);
+  const conv = conversionProfile(playbook.id, input.lead.tipo_negocio);
   const razon = `${primary ? `${primary.detalle} ` : ""}En ${playbook.label} el objetivo es: ${conv.objetivo.toLowerCase()}. Su cliente necesita resolver “${conv.friccion[0]?.duda ?? ""}” antes de actuar; ${playbook.pain_context}`;
 
   const guion =

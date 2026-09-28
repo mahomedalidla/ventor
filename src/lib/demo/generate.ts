@@ -1,4 +1,5 @@
 import { conversionBrief, conversionProfile } from "@/lib/categories/conversion";
+import { resolveEspecialidad } from "@/lib/categories/especialistas";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
 import type { DemoMockup } from "@/lib/demo/types";
 import { geminiGenerate, geminiKey } from "@/lib/gemini";
@@ -46,6 +47,7 @@ PROHIBIDO:
 
 OBLIGATORIO:
 - Partir de "conversion_rubro": search_query sale de "como_busca"; flow_steps siguen el "objetivo" y la "anatomia"; cta_label usa "cta_primario"; why_this ancla a una duda crítica o factor de confianza que hoy no cubre.
+- Si conversion_rubro.especialidad existe (médico especialista), los ítems SON los servicios de esa especialidad (no "consulta genérica") y el vibe es de ese consultorio.
 - Usar el NOMBRE REAL del negocio en search_title, headline, cta_prefill
 - Usar la ZONA real
 - Inferir vibe y gustos de reseñas + tipo de negocio + señales
@@ -76,7 +78,7 @@ Responde SOLO JSON con el schema pedido.`;
         label: playbook.label,
         pain: playbook.pain_context,
       },
-      conversion_rubro: conversionBrief(playbook.id),
+      conversion_rubro: conversionBrief(playbook.id, input.lead.tipo_negocio),
       señales: friction.map((s) => ({
         tipo: s.tipo_signal,
         detalle: s.detalle,
@@ -110,8 +112,8 @@ function heuristicDemo(input: DemoInput): DemoMockup {
   const reviewBlob = reviews.map((r) => r.text ?? "").join(" ");
 
   const palette = paletteFor(playbook.id);
-  const items = itemsFor(playbook.id, nombre, reviewBlob);
-  const conv = conversionProfile(playbook.id);
+  const items = itemsFor(playbook.id, nombre, reviewBlob, input.lead.tipo_negocio);
+  const conv = conversionProfile(playbook.id, input.lead.tipo_negocio);
   const search_query =
     conv.como_busca
       .map((q) =>
@@ -180,6 +182,7 @@ function sanitizeDemo(demo: DemoMockup, input: DemoInput): DemoMockup {
       resolvePlaybook(input.lead.tipo_negocio ?? "general").id,
       nombre,
       "",
+      input.lead.tipo_negocio,
     );
   }
   if (!demo.palette?.accent) {
@@ -239,8 +242,18 @@ export function itemsFor(
   playbookId: string,
   _nombre: string,
   reviewBlob: string,
+  tipoNegocio?: string | null,
 ): DemoMockup["items"] {
   const lower = reviewBlob.toLowerCase();
+  if (playbookId === "salud") {
+    const esp = resolveEspecialidad(tipoNegocio);
+    if (esp) {
+      return esp.servicios.slice(0, 5).map((name) => ({
+        name,
+        price_hint: "consultar",
+      }));
+    }
+  }
   if (playbookId === "comida") {
     const base = [
       { name: "Ceviche de camarón", price_hint: "$180", note: "Porción generosa" },

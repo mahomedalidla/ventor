@@ -58,6 +58,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       title: clean(title),
       description: clean(description),
+      image: clean(
+        matchMeta(html, "og:image") || matchMeta(html, "twitter:image"),
+      ),
     });
   } catch {
     return NextResponse.json({

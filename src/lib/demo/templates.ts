@@ -1,5 +1,6 @@
 import type { DemoAssets } from "@/lib/demo/assets";
 import { vocabFor } from "@/lib/categories/vocab";
+import { layoutFor, type LayoutId } from "@/lib/categories/goals";
 import type { Secciones } from "@/lib/sales/alcance";
 
 export type Benefit = { titulo: string; texto: string };
@@ -15,7 +16,7 @@ export type DeliverableData = {
   beneficios: Benefit[];
   faq: FaqItem[];
   offer_label: string;
-  items: Array<{ name: string; price_hint: string; note?: string | null }>;
+  items: Array<{ name: string; price_hint: string; note?: string | null; photo_url?: string | null; slot_id?: string }>;
   accent: string;
   accent2: string;
   accent3: string;
@@ -119,6 +120,7 @@ export function landingTemplate(d: DeliverableData): string {
     : `<span class="logo-mono">${esc(initials(d.nombre))}</span>`;
   const sk = skinOf(d.playbook_id);
   const dark = sk.paper.startsWith("#11");
+  const layout: LayoutId = layoutFor(`${d.nombre}|${d.zona}|${d.playbook_id}`);
 
   return `<!doctype html>
 <html lang="es">
@@ -180,11 +182,25 @@ section{padding:88px 22px;max-width:1100px;margin:0 auto}
 .stats{display:flex;gap:28px;flex-wrap:wrap;margin-top:8px}
 .stat b{display:block;font-family:${sk.display};font-size:56px;line-height:1;color:var(--a)}
 .items{display:grid;gap:12px;${sk.items === "cards" ? "grid-template-columns:repeat(auto-fit,minmax(220px,1fr));" : ""}}
-.item{display:flex;${sk.items === "cards" ? "flex-direction:column;" : "justify-content:space-between;"}gap:16px;padding:18px 20px;border-radius:var(--r);background:${dark ? "#1c1d20" : "#fff"};border:1px solid rgba(0,0,0,.06);transition:.3s}
-.item:hover{transform:translateX(6px);border-color:var(--a)}
+.item{display:flex;flex-direction:column;gap:12px;padding:0 0 16px;overflow:hidden;border-radius:var(--r);background:${dark ? "#1c1d20" : "#fff"};border:1px solid rgba(0,0,0,.06);transition:.3s}
+.item:hover{transform:translateY(-4px);border-color:var(--a)}
+.item .shot{aspect-ratio:4/3;overflow:hidden;background:linear-gradient(135deg,color-mix(in srgb,var(--a) 70%,#111),var(--b))}
+.item .shot img{width:100%;height:100%;object-fit:cover}
+.item .shot-ph{width:100%;height:100%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;text-align:center;padding:16px;letter-spacing:.02em}
+.item .item-body{padding:0 18px}
 .item strong{font-size:17px}
 .item small{display:block;color:var(--muted);margin-top:2px}
-.item .p{font-weight:800;color:var(--a);white-space:nowrap}
+.item .p{font-weight:800;color:var(--a);white-space:nowrap;padding:0 18px}
+body[data-layout=split] .hero{align-items:stretch;padding:0;min-height:100svh;display:grid;grid-template-columns:1fr 1fr}
+body[data-layout=split] .hero-inner{padding:120px 40px 64px;margin:0;background:rgba(0,0,0,.35)}
+body[data-layout=editorial] .hero h1{font-style:italic}
+body[data-layout=editorial] .items{grid-template-columns:1fr}
+body[data-layout=bento] .items{grid-template-columns:repeat(6,1fr);gap:10px}
+body[data-layout=bento] .item:first-child{grid-column:span 4;grid-row:span 2}
+body[data-layout=bento] .item{grid-column:span 2}
+body[data-layout=warm-local] .hero{min-height:70svh}
+body[data-layout=warm-local] .info{margin-top:-40px;position:relative;z-index:2}
+@media(max-width:720px){body[data-layout=split] .hero{grid-template-columns:1fr}body[data-layout=bento] .items,body[data-layout=bento] .item,body[data-layout=bento] .item:first-child{grid-column:span 6}}
 .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .gallery div{aspect-ratio:${sk.items === "cards" ? "16/10" : "4/5"};border-radius:var(--r);overflow:hidden}
 .gallery img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s}
@@ -209,7 +225,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 40px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
+<body data-layout="${layout}">
 <div class="glow" id="glow"></div>
 <nav class="nav" id="nav"><div class="brand">${logo}<span>${esc(d.nombre)}</span></div><a class="btn" href="${esc(d.wa_url)}" target="_blank" rel="noopener">${esc(d.cta_label)}</a></nav>
 
@@ -249,9 +265,12 @@ ${d.items.length ? `<section>
   <div class="eyebrow reveal">${esc(d.offer_label)}</div>
   <h2 class="title reveal">${esc(vocabFor(d.playbook_id).oferta_titulo)}</h2>
   <div class="items">${d.items
-    .map(
-      (it) => `<div class="item reveal"><div><strong>${esc(it.name)}</strong>${it.note ? `<small>${esc(it.note)}</small>` : ""}</div><div class="p">${esc(it.price_hint)}</div></div>`,
-    )
+    .map((it) => {
+      const shot = it.photo_url
+        ? `<img src="${esc(it.photo_url)}" alt="${esc(it.name)}" loading="lazy">`
+        : `<div class="shot-ph">${esc(it.name)}</div>`;
+      return `<div class="item reveal" data-slot="${esc(it.slot_id ?? it.name)}"><div class="shot">${shot}</div><div class="item-body"><strong>${esc(it.name)}</strong>${it.note ? `<small>${esc(it.note)}</small>` : ""}</div><div class="p">${esc(it.price_hint)}</div></div>`;
+    })
     .join("")}</div>
 </section>` : ""}
 

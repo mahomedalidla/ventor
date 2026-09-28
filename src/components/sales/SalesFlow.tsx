@@ -42,7 +42,7 @@ export function SalesFlow({
   const [origin, setOrigin] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<number | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => setOrigin(window.location.origin), []);
 
@@ -167,12 +167,12 @@ export function SalesFlow({
                       type="button"
                       onClick={async () => {
                         await navigator.clipboard.writeText(text);
-                        setCopied(i);
+                        setCopied(`copy-${i}`);
                         setTimeout(() => setCopied(null), 1500);
                       }}
                       className="rounded-md border border-border px-3 py-2 text-sm"
                     >
-                      {copied === i ? "¡Copiado!" : "Copiar"}
+                      {copied === `copy-${i}` ? "¡Copiado!" : "Copiar"}
                     </button>
                     <button
                       type="button"
@@ -200,6 +200,19 @@ export function SalesFlow({
                         Aceptó: iniciar prueba
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const msg =
+                          "Perfecto, no lo entretengo. ¿Me puede pasar con quien decide lo de la página o las redes? Si prefiere, le dejo este mensaje para reenviárselo.";
+                        await navigator.clipboard.writeText(msg);
+                        setCopied("gk");
+                        setTimeout(() => setCopied(null), 1500);
+                      }}
+                      className="rounded-md border border-border px-3 py-2 text-sm"
+                    >
+                      {copied === "gk" ? "¡Copiado!" : "No es quien decide"}
+                    </button>
                   </div>
                 </>
               )}
@@ -213,6 +226,11 @@ export function SalesFlow({
           <summary className="cursor-pointer text-sm font-semibold">
             Si le dice… (manejo de objeciones)
           </summary>
+          <p className="mt-2 text-xs text-muted">
+            Quien atiende WhatsApp muchas veces no es quien decide. Si dice “yo
+            solo atiendo”, no le expliques precio: pide que reenvíe o el nombre
+            del dueño.
+          </p>
           <ul className="mt-2 flex flex-col gap-2">
             {plan.objeciones.map((o) => (
               <li key={o.objecion} className="text-sm">

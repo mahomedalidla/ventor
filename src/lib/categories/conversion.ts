@@ -1,3 +1,4 @@
+import { applyEspecialidad, resolveEspecialidad } from "@/lib/categories/especialistas";
 import type { CategoryId } from "@/lib/categories/playbooks";
 
 /**
@@ -544,13 +545,16 @@ export const CONVERSION_PROFILES: Record<CategoryId, ConversionProfile> = {
   },
 };
 
-export function conversionProfile(id: CategoryId): ConversionProfile {
-  return CONVERSION_PROFILES[id] ?? CONVERSION_PROFILES.general;
+export function conversionProfile(id: CategoryId, tipoNegocio?: string | null): ConversionProfile {
+  const base = CONVERSION_PROFILES[id] ?? CONVERSION_PROFILES.general;
+  if (id === "salud") return applyEspecialidad(base, tipoNegocio);
+  return base;
 }
 
 /** Versión compacta del perfil para prompts (inferencia, mockup, entregables). */
-export function conversionBrief(id: CategoryId) {
-  const p = conversionProfile(id);
+export function conversionBrief(id: CategoryId, tipoNegocio?: string | null) {
+  const p = conversionProfile(id, tipoNegocio);
+  const esp = id === "salud" ? resolveEspecialidad(tipoNegocio) : null;
   return {
     objetivo: p.objetivo,
     cta_primario: p.cta_primario,
@@ -562,6 +566,7 @@ export function conversionBrief(id: CategoryId) {
     factores_urgencia: p.urgencia,
     dudas_criticas: p.friccion.map((f) => f.duda),
     evitar: p.evitar,
+    especialidad: esp ? { id: esp.id, label: esp.label, servicios: esp.servicios } : null,
   };
 }
 

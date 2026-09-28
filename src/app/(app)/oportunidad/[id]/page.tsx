@@ -13,10 +13,13 @@ import { SalesFlow } from "@/components/sales/SalesFlow";
 import { TrialActivation } from "@/components/sales/TrialActivation";
 import { NextActionCard } from "@/components/sales/NextActionCard";
 import { AjustesPanel } from "@/components/AjustesPanel";
+import { PhotoSlotsPanel } from "@/components/PhotoSlotsPanel";
+import { resolveEspecialidad } from "@/lib/categories/especialistas";
 import { fetchStatsForSlugs } from "@/lib/stats";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
 import { cleanAjustes } from "@/lib/demo/ajustes";
 import { pickDeliverableType } from "@/lib/demo/deliverable";
+import type { PhotoSlot } from "@/lib/demo/slots";
 import { isDemoMockup } from "@/lib/demo/types";
 import { isPlanId } from "@/lib/sales/alcance";
 import { engagementFrom, fetchEventsByOpportunity } from "@/lib/sales/engagement";
@@ -77,6 +80,7 @@ export default async function OportunidadPage({
 
   const mockup = isDemoMockup(data.demo_mockup) ? data.demo_mockup : null;
   const playbook = resolvePlaybook(lead?.tipo_negocio ?? "general");
+  const especialidad = resolveEspecialidad(lead?.tipo_negocio);
   const offer = (data.oferta ?? null) as Offer | null;
   const plan = (data.plan_venta ?? null) as SalesPlan | null;
   const ajustes = cleanAjustes(data.ajustes);
@@ -115,6 +119,10 @@ export default async function OportunidadPage({
     Object.values(slugs).filter((s): s is string => Boolean(s)),
   );
   const planElegido = isPlanId(data.plan_elegido) ? data.plan_elegido : null;
+  const photoSlots: PhotoSlot[] =
+    (deliverables ?? [])
+      .map((d) => (d as { assets?: { slots?: PhotoSlot[] } }).assets?.slots)
+      .find((s): s is PhotoSlot[] => Array.isArray(s) && s.length > 0) ?? [];
 
   const action = nextAction({
     nombre: lead?.nombre ?? "su negocio",
@@ -239,6 +247,15 @@ export default async function OportunidadPage({
           />
           <details className="mt-3 rounded-md border border-border p-3">
             <summary className="cursor-pointer text-sm font-semibold">
+              Fotos de platillos / habitaciones / servicios
+              {photoSlots.length ? ` (${photoSlots.length})` : " · se crean al generar"}
+            </summary>
+            <div className="mt-3">
+              <PhotoSlotsPanel opportunityId={data.id} slots={photoSlots} />
+            </div>
+          </details>
+          <details className="mt-3 rounded-md border border-border p-3">
+            <summary className="cursor-pointer text-sm font-semibold">
               Ajustes del dueño
               {Object.keys(ajustes).length
                 ? ` (${Object.keys(ajustes).length})`
@@ -261,10 +278,10 @@ export default async function OportunidadPage({
             </div>
           </details>
           <Link
-            href={`/catalogo/conversion#${playbook.id}`}
+            href={`/catalogo/conversion#${especialidad ? `esp-${especialidad.id}` : playbook.id}`}
             className="mt-2 inline-block text-xs font-medium text-accent underline-offset-2 hover:underline"
           >
-            Anatomía de conversión: {playbook.label} →
+            Anatomía de conversión: {especialidad ? especialidad.label : playbook.label} →
           </Link>
         </div>
 

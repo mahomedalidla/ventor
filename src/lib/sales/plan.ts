@@ -57,21 +57,22 @@ REGLAS DE COPY (obligatorias):
 - UNA sola pregunta por mensaje, fácil de contestar (sí/no o elegir entre dos).
 - Especificidad real > adjetivos: usa el nombre, la zona, su rating, número de reseñas, un platillo/servicio que elogian en reseñas.
 - Reciprocidad: ya le hicimos algo (la demo) sin costo; se ofrece como regalo, no como venta.
-- APERTURA: sin link, sin precio, sin presentarse como "desarrollador". Observación específica y halagadora + "le armé X" + pregunta de permiso.
+- APERTURA: sin link, sin precio, sin presentarse como "desarrollador". Observación específica y halagadora + "le armé X" + pregunta de permiso. NO asumas que quien atiende es el dueño: cierra con “¿me pasa con quien decide lo de la página, o se la mando a usted?”.
 - ENTREGA: link como {link} + una línea de lo que va a ver + pregunta de involucramiento ("¿qué le cambiaría?").
 - SEGUIMIENTO: no "¿lo vio?"; curiosidad o dato nuevo, una pregunta.
-- OFERTA DE PRUEBA: riesgo cero explícito (usa la condición de prueba dada). Lo único que le pedimos: poner el link como "Sitio web" en su perfil de Google Maps y en su WhatsApp (nosotros lo guiamos, 2 minutos). Explica en una frase por qué: quien lo busca en Google ya ve su ficha; ahora verá su página. Pregunta de fecha ("¿arrancamos hoy o mañana?"). Aún sin precio salvo que lo pida.
+- OFERTA DE PRUEBA: riesgo cero explícito (usa la condición de prueba dada). Lo único que le pedimos: poner el link como "Sitio web" en su perfil de Google Maps y en su WhatsApp (nosotros lo guiamos, 2 minutos). Explica en una frase por qué: quien lo busca en Google ya ve su ficha; ahora verá su página. Pregunta de fecha ("¿arrancamos hoy o mañana?"). Aún sin precio salvo que lo pida. Si quien responde no decide, pide que reenvíe el mensaje a quien sí (dueño, socio, quien lleva marketing) — no empujes precio al portero.
 - CHECK DE PRUEBA: usa los tokens literales {visitas} y {clics_whatsapp} (se reemplazan con los números reales) y {reporte} (link a su reporte) + pregunta.
-- CIERRE: abre con el resultado ({visitas} visitas, {clics_whatsapp} quisieron escribirle) y luego presenta los 3 planes con el Recomendado primero y marcado; precio como instalación + mensualidad y el ancla diaria; opción de instalación en 2 pagos si aplica; pregunta de elección ("¿Recomendado o Esencial?").
+- CIERRE: abre con el resultado ({visitas} visitas, {clics_whatsapp} quisieron escribirle) y luego presenta los 3 planes con el Recomendado primero y marcado; precio como instalación + mensualidad y el ancla diaria; opción de instalación en 2 pagos si aplica; pregunta de elección ("¿Recomendado o Esencial?"). El cierre es para QUIEN DECIDE; si aún atiende el empleado, pide una llamada de 5 min con el dueño.
 - No prometas que saldrá en Google orgánico durante la prueba; el tráfico viene de su ficha de Maps, WhatsApp y redes.
 - DESPEDIDA (break-up): corto, sin culpa, deja la puerta abierta ("¿lo dejo aquí o lo retomamos en otro momento?").
 - NUNCA exhibir sus problemas de forma humillante ("su página no sirve", "sus clientes se quejan"). Plantéalo como oportunidad o como lo que ganan sus clientes.
 - No inventes datos (resultados, clientes, cifras) que no estén en los datos.
+- PORTERO: quien atiende WhatsApp a menudo NO decide (recepcionista, mesero, pareja, hijo). No expliques precio ni cierre al portero. Valida, pide reenvío o el nombre de quien decide. Incluye SIEMPRE la objeción "No soy el dueño / yo solo atiendo el WhatsApp".
 - PRODUCTO A LA MEDIDA (si oferta.a_medida existe): es nuevo, hecho para este negocio. Nunca digas que ya lo usan otros negocios. La prueba es un PILOTO: publicamos su página presentándolo y medimos cuántos clientes lo piden antes de construirlo completo; la instalación se paga después y en 2 partes. Explícalo con oferta.a_medida.que_es.
 - Usa emojis con moderación (0–1 por mensaje).
 - tip: consejo táctico breve para el vendedor en ese paso (qué hacer si responde X).
 
-OBJECIONES: escribe 5–6 respuestas cortas a objeciones típicas del rubro ("está caro", "lo pienso", "ya tengo Facebook", "mi sobrino me lo hace", "no tengo tiempo", "¿y si no funciona?"). Técnica: validar → reencuadrar con dato/beneficio → pregunta.`;
+OBJECIONES: escribe 6–7 respuestas cortas a objeciones típicas del rubro ("está caro", "lo pienso", "ya tengo Facebook", "mi sobrino me lo hace", "no tengo tiempo", "¿y si no funciona?", "no soy el dueño / yo solo atiendo"). Técnica: validar → reencuadrar con dato/beneficio → pregunta.`;
 
 async function geminiPlan(input: PlanInput): Promise<SalesPlan> {
   const playbook = resolvePlaybook(input.lead.tipo_negocio ?? "general");
@@ -100,7 +101,7 @@ async function geminiPlan(input: PlanInput): Promise<SalesPlan> {
       demo_que_ya_hicimos: input.demoTipo === "landing" ? "Una página web con su marca, fotos y reseñas" : "Una demo de su WhatsApp atendiendo solo, en un celular",
       oferta: input.offer,
       escenario: input.escenario,
-      conversion_rubro: conversionBrief(playbook.id),
+      conversion_rubro: conversionBrief(playbook.id, input.lead.tipo_negocio),
       lecciones_de_rechazos: input.lecciones.slice(0, 8),
       pasos_a_escribir: pasos.map((p) => ({ etapa: p.etapa, dia: p.dia, cuando: p.cuando, objetivo: p.objetivo })),
     },
@@ -155,8 +156,8 @@ function templatePlan(input: PlanInput): SalesPlan {
 
   const msgs: Record<Etapa, { mensaje: string; tip: string }> = {
     apertura: {
-      mensaje: `Hola, buen día 👋 ${halago}\nLe armé ${demo} para ${n}, sin costo. ¿Se la mando por aquí?`,
-      tip: "Si pregunta “¿cuánto cuesta?” antes de ver: “Primero véala; si no le gusta, no pasa nada.”",
+      mensaje: `Hola, buen día 👋 ${halago}\nLe armé ${demo} para ${n}, sin costo. ¿Me pasa con quien decide lo de la página, o se la mando a usted?`,
+      tip: "Quien atiende WhatsApp a menudo NO decide. Si es empleado: pide que reenvíe. No expliques precio al portero.",
     },
     entrega_demo: {
       mensaje: `Aquí está 👉 {link}\nEs como la vería su ${cliente} desde el celular, con sus fotos y reseñas. ¿Qué le cambiaría?`,
@@ -197,8 +198,9 @@ function templatePlan(input: PlanInput): SalesPlan {
       { objecion: "Mi sobrino me lo hace", respuesta: `Perfecto, que lo haga. Solo le pido que compare con esta que ya está lista y con su marca. ¿Se la dejo de referencia?` },
       { objecion: "No tengo tiempo", respuesta: `Por eso ya está hecha. De usted solo necesito confirmar su WhatsApp. ¿Se la activo hoy?` },
       { objecion: "¿Y si no funciona?", respuesta: `${prueba.condicion} El riesgo es mío. ¿Arrancamos?` },
+      { objecion: "No soy el dueño / yo solo atiendo", respuesta: `Perfecto, no lo entretengo. ¿Me puede pasar con quien decide lo de la página o las redes? Si prefiere, le dejo este mensaje para reenviárselo.` },
     ],
-    evitar: "No mandar precio antes de que vea la demo. No mandar más de un mensaje seguido sin respuesta. No criticar lo que tiene hoy.",
+    evitar: "No mandar precio antes de que vea la demo. No mandar más de un mensaje seguido sin respuesta. No criticar lo que tiene hoy. No cerrar la venta con quien solo atiende el WhatsApp.",
     generado_por: "plantilla",
   };
 }

@@ -37,6 +37,10 @@ export function LeadSearchForm() {
   const [nombreRed, setNombreRed] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewHint, setPreviewHint] = useState<string | null>(null);
+  const [zonaRed, setZonaRed] = useState("Tepic");
+  const [tipoRed, setTipoRed] = useState("");
+  const [telefonoRed, setTelefonoRed] = useState("");
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const parsed = useMemo(
     () => (perfilUrl ? parseSocialProfileUrl(perfilUrl) : null),
@@ -118,6 +122,7 @@ export function LeadSearchForm() {
       });
       const data = await res.json();
       if (data.title && !nombreRed) setNombreRed(data.title);
+      if (data.image) setPreviewImage(data.image);
       setPreviewHint(
         data.warning ??
           (data.description
@@ -151,11 +156,13 @@ export function LeadSearchForm() {
       .insert({
         origen: "redes_sociales",
         nombre,
-        zona: null,
+        zona: zonaRed || null,
+        tipo_negocio: tipoRed.trim() || null,
+        telefono: telefonoRed.trim() || null,
         perfil_url: parsed.perfil_url,
         red_social: parsed.red_social,
         usuario_red_social: parsed.usuario_red_social,
-        metadata: {},
+        metadata: previewImage ? { og_image: previewImage } : {},
       })
       .select("id")
       .single();
@@ -173,11 +180,30 @@ export function LeadSearchForm() {
       detectado_por: "manual",
     });
 
-    setStatus("Lead de red social guardado.");
+    let inferMsg = "";
+    try {
+      setStatus("Generando oportunidades…");
+      const inferRes = await fetch("/api/infer/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_ids: [lead.id] }),
+      });
+      const inferData = await inferRes.json();
+      inferMsg = inferRes.ok
+        ? ` · ${inferData.inserted_total ?? 0} oportunidades`
+        : ` · inferencia: ${inferData.error ?? "falló"}`;
+    } catch {
+      inferMsg = " · inferencia: no se pudo conectar";
+    }
+
+    setStatus(`Lead de red social guardado${inferMsg}.`);
     setPerfilUrl("");
     setNotaRed("");
     setNombreRed("");
+    setTipoRed("");
+    setTelefonoRed("");
     setPreviewHint(null);
+    setPreviewImage(null);
     setSaving(false);
     router.refresh();
   }
@@ -420,6 +446,14 @@ export function LeadSearchForm() {
           </button>
 
           {previewHint && <p className="text-xs text-muted">{previewHint}</p>}
+          {previewImage && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previewImage}
+              alt=""
+              className="h-24 w-full rounded-md object-cover"
+            />
+          )}
 
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Nombre del negocio</span>
@@ -427,6 +461,53 @@ export function LeadSearchForm() {
               value={nombreRed}
               onChange={(e) => setNombreRed(e.target.value)}
               placeholder="Se llena con la vista previa o a mano"
+              className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Zona</span>
+            <select
+              value={zonaRed}
+              onChange={(e) => setZonaRed(e.target.value)}
+              className="rounded-md border border-border bg-surface px-3 py-2.5 outline-none focus:border-accent"
+            >
+              {ZONA_GROUPS.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.zonas.map((z) => (
+                    <option key={z} value={z}>
+                      {z}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Tipo de negocio</span>
+            <input
+              list="rs-tipos"
+              value={tipoRed}
+              onChange={(e) => setTipoRed(e.target.value)}
+              placeholder="Ej. oftalmólogo, mariscos, hotel…"
+              className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
+            />
+            <datalist id="rs-tipos">
+              {CATEGORY_FORM_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.group}
+                </option>
+              ))}
+            </datalist>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Teléfono (opcional)</span>
+            <input
+              value={telefonoRed}
+              onChange={(e) => setTelefonoRed(e.target.value)}
+              placeholder="311 123 4567"
               className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
             />
           </label>

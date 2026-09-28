@@ -26,9 +26,9 @@ const CAMBIOS_RAPIDOS = [
 
 const STEPS = [
   "Buscando logo y fotos reales…",
-  "Aplicando anatomía del rubro…",
-  "Diseñando secciones y efectos…",
-  "Armando el HTML final…",
+  "Detectando secciones y huecos de foto…",
+  "Diseñando como las mejores páginas del rubro…",
+  "Revisión visual de campos y layout…",
 ];
 
 const LABEL: Record<Tipo, string> = {

@@ -1,7 +1,10 @@
+import { LAYOUT_BRIEF, layoutFor, PAGINAS_GOAL } from "@/lib/categories/goals";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
 import { vocabFor } from "@/lib/categories/vocab";
 import type { DemoAssets } from "@/lib/demo/assets";
 import { itemsFor } from "@/lib/demo/generate";
+import { inspectHtml, qaFixHtml } from "@/lib/demo/qa";
+import { slotsFromItems, withPhotoSlots, type PhotoSlot } from "@/lib/demo/slots";
 import {
   conversionProfile,
   fillTokens,
@@ -46,6 +49,7 @@ export type DeliverableResult = {
   html: string;
   engine: "gemini" | "plantilla";
   aviso?: string;
+  slots: PhotoSlot[];
 };
 
 /** Todo mensaje que sale de la página empieza igual: el dueño reconoce los clientes que trajo. */
@@ -66,15 +70,17 @@ export function pickDeliverableType(producto: string | null | undefined): Delive
 export async function buildDeliverable(
   input: DeliverableInput,
 ): Promise<DeliverableResult> {
+  const slots = slotsFromItems(slottedItems(input));
   if (geminiAvailable()) {
     try {
       const html = await geminiHtml(input);
-      return { html, engine: "gemini" };
+      return { html, engine: "gemini", slots };
     } catch (e) {
       return {
         html: templateHtml(input),
         engine: "plantilla",
         aviso: humanizeGeminiError(e),
+        slots,
       };
     }
   }
@@ -82,6 +88,7 @@ export async function buildDeliverable(
     html: templateHtml(input),
     engine: "plantilla",
     aviso: "Falta GEMINI_API_KEY. La página salió con plantilla del rubro.",
+    slots,
   };
 }
 
@@ -104,7 +111,16 @@ AUDIENCIA: la landing es la página REAL del negocio y le habla a SU cliente fin
 ESTRUCTURA: sigue EXACTAMENTE la "anatomia_conversion" del rubro, en ese orden, con sus elementos.
 CRO: aplica los "factores_confianza" y "factores_urgencia" del rubro (urgencia solo si es verdadera o genérica, nunca inventes ofertas).
 FRICCIÓN: responde cada "duda_critica" dentro de la página (FAQ, microcopy junto al CTA o en la sección que toque) usando la respuesta sugerida o datos reales.
-Respeta "evitar".`;
+Respeta "evitar".
+
+DIVERSIDAD (no negociable): esta página NO puede parecerse a la plantilla default (hero full + 3 cards + marquee). Usa el "layout_asignado" y "pagina_goal". Si el layout es split, hero 50/50 foto|texto. Editorial = revista (serif, pull-quotes, fotos a sangre). Bento = grid irregular con un bloque estrella. Warm-local = horario y mapa muy arriba, sensación de barrio premium. Cinematic = full-bleed. Cambia tipografía, ritmo y composición; no clones la misma página para todos los negocios del rubro.
+
+ÍTEMS CON FOTO (habitaciones, platillos, servicios, propiedades): cada uno de "items_con_foto" se renderiza con data-slot="{slot_id}".
+- Si hay photo_url, ponla en un recuadro .shot con <img>.
+- Si NO hay foto, NO dejes un hueco vacío ni esperes a que el dueño mande fotos: usa un placeholder DISEÑADO <div class="shot-ph">nombre del ítem</div> (gradiente de la paleta + nombre). La página nace completa. El dueño podrá reemplazar esa foto después.
+- Recicla las fotos reales entre ítems si hay pocas; mejor repetir una foto real que dejar un recuadro muerto.
+
+QA VISUAL: todo <input> lleva <label> o aria-label. Nada de href="#". Nada de <img src="">. Nada de lorem/unsplash. HTML completo con <!doctype html> y </html>.`;
 
 const INTERNAL_RULE = `CONFIDENCIAL — "dolencias_internas" son hallazgos de NUESTRO equipo de ventas (no tiene sitio, depende de apps, reseñas que se quejan, etc.).
 - NUNCA las menciones, cites ni insinúes en la página: nada de "antes / ahora", "ya no pierdas pedidos", "sin comisiones de Booking", "ahora sí contestamos", ni reseñas negativas.
@@ -126,9 +142,11 @@ Construye una página con un CELULAR realista (marco, notch, barra de WhatsApp v
 async function geminiHtml(input: DeliverableInput): Promise<string> {
   const playbook = resolvePlaybook(input.lead.tipo_negocio ?? "general");
   const { lead, assets } = input;
-  const conv = conversionProfile(playbook.id);
+  const conv = conversionProfile(playbook.id, lead.tipo_negocio);
   const friction = input.signals.filter((s) => s.tipo_signal !== "playbook_categoria");
   const wa = waLink(lead.telefono, webPrefill(input.mockup));
+  const layout = layoutFor(`${lead.nombre}|${lead.zona ?? ""}|${playbook.id}`);
+  const items = slottedItems(input);
 
   const system = `Eres un director creativo + frontend senior. Generas UN SOLO documento HTML completo, autocontenido (CSS en <style>, JS en <script>), listo para enviarse al dueño del negocio como propuesta real.
 
@@ -198,6 +216,10 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
         tipo: s.tipo_signal,
         detalle: s.detalle,
       })),
+      layout_asignado: layout,
+      layout_brief: LAYOUT_BRIEF[layout],
+      pagina_goal: PAGINAS_GOAL[playbook.id],
+      items_con_foto: items,
       rubro: playbook.label,
       objetivo: conv.objetivo,
       cta_primario: conv.cta_primario,
@@ -225,9 +247,32 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
     2,
   );
 
-  const html = extractHtml(await geminiGenerate({ system, user, temperature: 0.9, maxOutputTokens: 32000 }));
+  const html = extractHtml(await geminiGenerate({ system, user, temperature: 0.92, maxOutputTokens: 32000 }));
   if (!html) throw new Error("HTML inválido o truncado");
-  return html;
+  return reviewHtml(html);
+}
+
+async function reviewHtml(html: string): Promise<string> {
+  let out = html;
+  const issues = inspectHtml(out);
+  if (issues.length) {
+    try {
+      const fixed = extractHtml(await qaFixHtml(out, issues));
+      if (fixed) {
+        const left = inspectHtml(fixed);
+        const wasCrit = issues.filter((i) => i.critico).length;
+        const nowCrit = left.filter((i) => i.critico).length;
+        if (nowCrit < wasCrit || left.length <= issues.length) out = fixed;
+      }
+    } catch {
+      // nos quedamos con el HTML original
+    }
+  }
+  const leftover = inspectHtml(out);
+  if (leftover.some((i) => i.critico && (i.code === "truncado" || i.code === "corto"))) {
+    throw new Error("QA: el HTML quedó incompleto");
+  }
+  return out;
 }
 
 export function geminiAvailable(): boolean {
@@ -253,7 +298,20 @@ export async function editDeliverableHtml(
     await geminiGenerate({ system: EDIT_SYSTEM, user, temperature: 0.3, maxOutputTokens: 60000 }),
   );
   if (!out || out.length < html.length * 0.4) throw new Error("La edición salió incompleta; intenta de nuevo");
-  return out;
+  return reviewHtml(out);
+}
+
+function slottedItems(input: DeliverableInput) {
+  const playbook = resolvePlaybook(input.lead.tipo_negocio ?? "general");
+  const raw = input.mockup?.items?.length
+    ? input.mockup.items
+    : itemsFor(
+        playbook.id,
+        input.lead.nombre,
+        input.assets.reviews.map((r) => r.text).join(" "),
+        input.lead.tipo_negocio,
+      );
+  return withPhotoSlots(raw, input.assets.photos);
 }
 
 function extractHtml(raw: string): string | null {
@@ -320,7 +378,7 @@ function faqFrom(input: DeliverableInput, conv: ConversionProfile): FaqItem[] {
 
 function baseData(input: DeliverableInput): DeliverableData {
   const playbook = resolvePlaybook(input.lead.tipo_negocio ?? "general");
-  const conv = conversionProfile(playbook.id);
+  const conv = conversionProfile(playbook.id, input.lead.tipo_negocio);
   const m = input.mockup;
   const accent =
     input.assets.theme_color && /^#[0-9a-f]{6}$/i.test(input.assets.theme_color)
@@ -349,13 +407,7 @@ function baseData(input: DeliverableInput): DeliverableData {
     beneficios: benefitsFrom(input, conv),
     faq: faqFrom(input, conv),
     offer_label: vocabFor(playbook.id).oferta_label,
-    items: m?.items?.length
-      ? m.items
-      : itemsFor(
-          playbook.id,
-          input.lead.nombre,
-          input.assets.reviews.map((r) => r.text).join(" "),
-        ),
+    items: slottedItems(input),
     accent,
     accent2,
     accent3,
