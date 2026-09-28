@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { ChatAdvice } from "@/lib/sales/chat-advise";
 import { waLink } from "@/lib/phone";
 import { renderMessage } from "@/lib/sales/render";
-import { ETAPA_LABEL, type SalesPlan } from "@/lib/sales/types";
+import { ETAPA_LABEL, type Etapa, type SalesPlan } from "@/lib/sales/types";
 
 function when(iso: string | null): string | null {
   if (!iso) return null;
@@ -43,6 +44,8 @@ export function SalesFlow({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [chatPaste, setChatPaste] = useState("");
+  const [advice, setAdvice] = useState<(ChatAdvice & { paso_index: number }) | null>(null);
 
   useEffect(() => setOrigin(window.location.origin), []);
 
@@ -94,8 +97,116 @@ export function SalesFlow({
   const actual = Math.min(pasoActual, plan.pasos.length - 1);
   const proximo = when(proximoContacto);
 
+  async function analyzeChat() {
+    setBusy("chat");
+    setError(null);
+    setAdvice(null);
+    try {
+      const res = await fetch("/api/sales/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opportunity_id: opportunityId, chat: chatPaste }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "No se pudo analizar");
+      else setAdvice(data);
+    } catch {
+      setError("Error de red");
+    }
+    setBusy(null);
+  }
+
+  function applyCambiosDemo(texto: string) {
+    try {
+      sessionStorage.setItem(`demo-cambio:${opportunityId}`, texto);
+    } catch {
+      /* ignore */
+    }
+    window.location.hash = "demo";
+    router.refresh();
+  }
+
   return (
     <div className="flex flex-col gap-3">
+      <div className="rounded-lg border border-border p-3">
+        <p className="text-sm font-semibold">Pegar respuesta del WhatsApp</p>
+        <p className="text-xs text-muted">
+          Copia lo que contestó el cliente. Te digo a qué paso ir y qué adaptar.
+        </p>
+        <textarea
+          value={chatPaste}
+          onChange={(e) => setChatPaste(e.target.value)}
+          rows={3}
+          placeholder="Ej. Ok mándeme el link… / Está caro… / No soy el dueño, yo solo atiendo…"
+          className="mt-2 w-full rounded-md border border-border bg-background px-2 py-2 text-sm"
+        />
+        <button
+          type="button"
+          disabled={busy !== null || chatPaste.trim().length < 4}
+          onClick={analyzeChat}
+          className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {busy === "chat" ? "Analizando…" : "¿A qué paso voy?"}
+        </button>
+        {advice && (
+          <div className="mt-3 rounded-md bg-background p-3 text-sm">
+            <p className="font-semibold">
+              → {ETAPA_LABEL[advice.etapa_sugerida as Etapa]}
+            </p>
+            <p className="mt-1 text-xs text-muted">{advice.resumen}</p>
+            <p className="mt-2 text-xs">
+              <span className="font-semibold">Tip:</span> {advice.tip_vendedor}
+            </p>
+            {advice.objecion && (
+              <p className="mt-2 text-xs">
+                <span className="font-semibold">Objeción:</span> “{advice.objecion}”
+              </p>
+            )}
+            {advice.respuesta_sugerida && (
+              <p className="mt-2 whitespace-pre-wrap rounded-md bg-[#d9fdd3] px-2 py-2 text-sm text-[#111]">
+                {advice.respuesta_sugerida}
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {advice.avanzar && (
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() =>
+                    post("/api/sales/step", { action: "ir_a", paso: advice.paso_index }, "goChat")
+                  }
+                  className="rounded-md border border-accent px-3 py-1.5 text-xs font-semibold text-accent disabled:opacity-60"
+                >
+                  Ir a ese paso
+                </button>
+              )}
+              {advice.respuesta_sugerida && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(advice.respuesta_sugerida!);
+                    setCopied("adv");
+                    setTimeout(() => setCopied(null), 1500);
+                  }}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs"
+                >
+                  {copied === "adv" ? "¡Copiado!" : "Copiar respuesta"}
+                </button>
+              )}
+              {advice.cambios_demo && (
+                <button
+                  type="button"
+                  onClick={() => applyCambiosDemo(advice.cambios_demo!)}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
+                >
+                  Llevar cambio a la demo
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-background px-3 py-2 text-xs">
         <span>
           <span className="font-semibold">Siguiente:</span>{" "}

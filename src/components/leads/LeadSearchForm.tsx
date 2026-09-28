@@ -8,10 +8,11 @@ import {
 } from "@/lib/categories/playbooks";
 import { createClient } from "@/lib/supabase/client";
 import type { ProspectedLead } from "@/lib/places/types";
+import { parseDoctoraliaUrl, nombreFromDoctoraliaSlug } from "@/lib/doctoralia/parse-profile-url";
 import { parseSocialProfileUrl } from "@/lib/social/parse-profile-url";
 import { ZONA_GROUPS } from "@/lib/zones";
 
-type Tab = "places" | "redes" | "manual";
+type Tab = "places" | "redes" | "doctoralia" | "manual";
 
 export function LeadSearchForm() {
   const router = useRouter();
@@ -42,9 +43,21 @@ export function LeadSearchForm() {
   const [telefonoRed, setTelefonoRed] = useState("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Doctoralia
+  const [docUrl, setDocUrl] = useState("");
+  const [docNombre, setDocNombre] = useState("");
+  const [docZona, setDocZona] = useState("Tepic");
+  const [docTipo, setDocTipo] = useState("oftalmólogo");
+  const [docTel, setDocTel] = useState("");
+  const [docNota, setDocNota] = useState("");
+
   const parsed = useMemo(
     () => (perfilUrl ? parseSocialProfileUrl(perfilUrl) : null),
     [perfilUrl],
+  );
+  const parsedDoc = useMemo(
+    () => (docUrl ? parseDoctoraliaUrl(docUrl) : null),
+    [docUrl],
   );
 
   // Manual
@@ -208,6 +221,45 @@ export function LeadSearchForm() {
     router.refresh();
   }
 
+  async function saveDoctoralia() {
+    if (!parsedDoc) {
+      setError("Pega un link válido de Doctoralia (perfil del médico o clínica).");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/doctoralia/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: parsedDoc.perfil_url,
+          nombre: docNombre.trim() || nombreFromDoctoraliaSlug(parsedDoc.slug),
+          zona: docZona,
+          tipo_negocio: docTipo.trim() || parsedDoc.especialidad_hint,
+          telefono: docTel.trim() || null,
+          nota: docNota.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo guardar");
+        return;
+      }
+      setStatus(data.mensaje ?? "Lead Doctoralia guardado.");
+      setDocUrl("");
+      setDocNombre("");
+      setDocNota("");
+      setDocTel("");
+      router.refresh();
+    } catch {
+      setError("No se pudo conectar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveManual() {
     if (!nombreManual.trim()) {
       setError("El nombre es obligatorio.");
@@ -258,6 +310,7 @@ export function LeadSearchForm() {
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "places", label: "Google Places" },
     { id: "redes", label: "Redes" },
+    { id: "doctoralia", label: "Doctoralia" },
     { id: "manual", label: "Manual" },
   ];
 
@@ -530,6 +583,103 @@ export function LeadSearchForm() {
             className="rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg disabled:opacity-60"
           >
             {saving ? "Guardando…" : "Guardar lead"}
+          </button>
+        </div>
+      )}
+
+      {tab === "doctoralia" && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
+          <p className="text-sm text-muted">
+            Pega el perfil del médico o clínica en Doctoralia. No scrapemos el
+            directorio: enlazamos a Google Places para fotos legales.
+          </p>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Link del perfil</span>
+            <input
+              type="url"
+              placeholder="https://www.doctoralia.com.mx/medico/…"
+              value={docUrl}
+              onChange={(e) => {
+                setDocUrl(e.target.value);
+                const p = parseDoctoraliaUrl(e.target.value);
+                if (p && !docNombre) setDocNombre(nombreFromDoctoraliaSlug(p.slug));
+                if (p?.especialidad_hint && !docTipo) setDocTipo(p.especialidad_hint);
+              }}
+              className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
+            />
+          </label>
+          {parsedDoc && (
+            <p className="text-xs text-muted">
+              Detectado: <span className="font-medium text-foreground">{parsedDoc.slug}</span>
+            </p>
+          )}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Nombre</span>
+            <input
+              value={docNombre}
+              onChange={(e) => setDocNombre(e.target.value)}
+              className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Zona</span>
+            <select
+              value={docZona}
+              onChange={(e) => setDocZona(e.target.value)}
+              className="rounded-md border border-border bg-surface px-3 py-2.5 outline-none focus:border-accent"
+            >
+              {ZONA_GROUPS.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.zonas.map((z) => (
+                    <option key={z} value={z}>
+                      {z}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Especialidad / tipo</span>
+            <input
+              list="doc-tipos"
+              value={docTipo}
+              onChange={(e) => setDocTipo(e.target.value)}
+              className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
+            />
+            <datalist id="doc-tipos">
+              {CATEGORY_FORM_OPTIONS.filter((o) => o.group === "Especialistas" || o.group === "Salud").map(
+                (o) => (
+                  <option key={o.value} value={o.value} />
+                ),
+              )}
+            </datalist>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Teléfono (opcional)</span>
+            <input
+              value={docTel}
+              onChange={(e) => setDocTel(e.target.value)}
+              className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Nota (opcional)</span>
+            <textarea
+              rows={2}
+              value={docNota}
+              onChange={(e) => setDocNota(e.target.value)}
+              placeholder="Ej. sin agenda online, buenas reseñas"
+              className="rounded-md border border-border px-3 py-2.5 outline-none focus:border-accent"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={saveDoctoralia}
+            disabled={saving || !parsedDoc}
+            className="rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg disabled:opacity-60"
+          >
+            {saving ? "Guardando…" : "Guardar lead Doctoralia"}
           </button>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { injectCatalogIntoHtml, type CatalogItem } from "@/lib/demo/catalog";
 import {
   anonSupabase,
   cleanSrc,
@@ -53,11 +54,17 @@ export async function GET(
     });
   }
 
-  const html = preview || (internal && !download)
-    ? (row.demo_html as string)
-    : injectTracker(row.demo_html as string, `${url.origin}/api/t`, slug, download ? "dominio" : src);
+  let html = row.demo_html as string;
+  const assets = row.assets as { catalog_items?: CatalogItem[] } | null;
+  if (Array.isArray(assets?.catalog_items) && assets.catalog_items.length) {
+    html = injectCatalogIntoHtml(html, assets.catalog_items);
+  }
 
-  return new Response(html, {
+  const body = preview || (internal && !download)
+    ? html
+    : injectTracker(html, `${url.origin}/api/t`, slug, download ? "dominio" : src);
+
+  return new Response(body, {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "content-security-policy":

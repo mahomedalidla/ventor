@@ -13,13 +13,15 @@ import { SalesFlow } from "@/components/sales/SalesFlow";
 import { TrialActivation } from "@/components/sales/TrialActivation";
 import { NextActionCard } from "@/components/sales/NextActionCard";
 import { AjustesPanel } from "@/components/AjustesPanel";
+import { CatalogPanel } from "@/components/CatalogPanel";
 import { PhotoSlotsPanel } from "@/components/PhotoSlotsPanel";
 import { resolveEspecialidad } from "@/lib/categories/especialistas";
+import type { CatalogItem } from "@/lib/demo/catalog";
+import type { PhotoSlot } from "@/lib/demo/slots";
 import { fetchStatsForSlugs } from "@/lib/stats";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
 import { cleanAjustes } from "@/lib/demo/ajustes";
 import { pickDeliverableType } from "@/lib/demo/deliverable";
-import type { PhotoSlot } from "@/lib/demo/slots";
 import { isDemoMockup } from "@/lib/demo/types";
 import { isPlanId } from "@/lib/sales/alcance";
 import { engagementFrom, fetchEventsByOpportunity } from "@/lib/sales/engagement";
@@ -123,6 +125,17 @@ export default async function OportunidadPage({
     (deliverables ?? [])
       .map((d) => (d as { assets?: { slots?: PhotoSlot[] } }).assets?.slots)
       .find((s): s is PhotoSlot[] => Array.isArray(s) && s.length > 0) ?? [];
+  const catalogItems: CatalogItem[] =
+    (deliverables ?? [])
+      .map((d) => (d as { assets?: { catalog_items?: CatalogItem[] } }).assets?.catalog_items)
+      .find((s): s is CatalogItem[] => Array.isArray(s) && s.length > 0) ??
+    photoSlots.map((s) => ({
+      id: s.id,
+      name: s.label,
+      price_hint: "consultar",
+      photo_url: s.photo_url,
+      available: true,
+    }));
 
   const action = nextAction({
     nombre: lead?.nombre ?? "su negocio",
@@ -245,6 +258,19 @@ export default async function OportunidadPage({
             suggested={pickDeliverableType(producto)}
             planElegido={planElegido}
           />
+          <details className="mt-3 rounded-md border border-border p-3">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Catálogo (menú / habitaciones / servicios)
+              {catalogItems.length ? ` (${catalogItems.length})` : ""}
+            </summary>
+            <div className="mt-3">
+              <CatalogPanel
+                opportunityId={data.id}
+                initial={catalogItems}
+                planAllowsEdit={planElegido !== "esencial"}
+              />
+            </div>
+          </details>
           <details className="mt-3 rounded-md border border-border p-3">
             <summary className="cursor-pointer text-sm font-semibold">
               Fotos de platillos / habitaciones / servicios

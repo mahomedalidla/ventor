@@ -61,11 +61,14 @@ export async function POST(request: Request) {
     const slots: PhotoSlot[] = (prev.slots ?? []).map((s) =>
       s.id === slotId ? { ...s, photo_url: url } : s,
     );
+    const catalog_items = (prev.catalog_items ?? []).map((c) =>
+      c.id === slotId ? { ...c, photo_url: url } : c,
+    );
     await supabase
       .from("demo_deliverables")
       .update({
         html,
-        assets: { ...prev, slots },
+        assets: { ...prev, slots, catalog_items },
         html_anterior: d.html,
         ultimo_cambio: `Foto: ${slots.find((s) => s.id === slotId)?.label ?? slotId}`,
         updated_at: new Date().toISOString(),

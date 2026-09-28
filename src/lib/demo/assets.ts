@@ -1,8 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { PhotoSlot } from "@/lib/demo/slots";
+import type { CatalogItem } from "@/lib/demo/catalog";
 
-export type DemoPhoto = { url: string; label: string };
+export type DemoPhoto = {
+  url: string;
+  label: string;
+  source?: "places" | "sitio" | "unsplash";
+  attribution?: string | null;
+};
 
 export type DemoReview = {
   text: string;
@@ -27,6 +33,9 @@ export type DemoAssets = {
   website_title: string | null;
   website_description: string | null;
   slots?: PhotoSlot[];
+  catalog_items?: CatalogItem[];
+  /** Pie de atribución si hubo stock Unsplash */
+  stock_attribution?: string | null;
 };
 
 type LeadForAssets = {
@@ -47,6 +56,7 @@ const UA = "Mozilla/5.0 (compatible; VendorBot/1.0; +local prospecting)";
 export async function gatherDemoAssets(
   supabase: SupabaseClient,
   lead: LeadForAssets,
+  opts?: { tipo_negocio?: string | null; zona?: string | null },
 ): Promise<DemoAssets> {
   const meta = lead.metadata ?? {};
   const assets: DemoAssets = {
@@ -107,6 +117,7 @@ export async function gatherDemoAssets(
           assets.photos.push({
             url: stored ?? uri,
             label: i === 0 ? "principal" : `foto ${i + 1}`,
+            source: "places",
           });
         }
       }
@@ -168,6 +179,21 @@ export async function gatherDemoAssets(
     }
   }
 
+  // 5) Unsplash solo si no hay fotos reales
+  if (assets.photos.length === 0) {
+    const stock = await fetchUnsplashPhotos(
+      supabase,
+      lead.id,
+      stamp,
+      opts?.tipo_negocio ?? (meta.tipo_negocio as string) ?? null,
+      opts?.zona ?? null,
+    );
+    if (stock.photos.length) {
+      assets.photos = stock.photos;
+      assets.stock_attribution = stock.attribution;
+    }
+  }
+
   return assets;
 }
 
@@ -225,6 +251,66 @@ async function fetchPhotoUri(
   if (!res.ok) return null;
   const data = (await res.json()) as { photoUri?: string };
   return data.photoUri ?? null;
+}
+
+async function fetchUnsplashPhotos(
+  supabase: SupabaseClient,
+  leadId: string,
+  stamp: number,
+  tipo: string | null,
+  zona: string | null,
+): Promise<{ photos: DemoPhoto[]; attribution: string | null }> {
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  if (!key || key.includes("your_")) return { photos: [], attribution: null };
+  const query = [tipo || "negocio local mexico", zona, "mexico"]
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 80);
+  try {
+    const url = new URL("https://api.unsplash.com/search/photos");
+    url.searchParams.set("query", query);
+    url.searchParams.set("per_page", "6");
+    url.searchParams.set("orientation", "landscape");
+    const res = await fetch(url, {
+      headers: { Authorization: `Client-ID ${key}`, "Accept-Version": "v1" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return { photos: [], attribution: null };
+    const data = (await res.json()) as {
+      results?: Array<{
+        urls?: { regular?: string };
+        user?: { name?: string; links?: { html?: string } };
+        links?: { html?: string };
+      }>;
+    };
+    const photos: DemoPhoto[] = [];
+    const credits: string[] = [];
+    for (let i = 0; i < (data.results ?? []).length; i++) {
+      const r = data.results![i];
+      const src = r.urls?.regular;
+      if (!src) continue;
+      const stored = await persistImage(
+        supabase,
+        src,
+        `leads/${leadId}/${stamp}-unsplash-${i}`,
+      );
+      if (!stored && !src) continue;
+      const author = r.user?.name ?? "Unsplash";
+      credits.push(author);
+      photos.push({
+        url: stored ?? src,
+        label: i === 0 ? "ambiente" : `stock ${i + 1}`,
+        source: "unsplash",
+        attribution: `Foto: ${author} / Unsplash`,
+      });
+    }
+    const attribution = photos.length
+      ? `Fotos de apoyo: ${[...new Set(credits)].slice(0, 3).join(", ")} · Unsplash`
+      : null;
+    return { photos, attribution };
+  } catch {
+    return { photos: [], attribution: null };
+  }
 }
 
 async function persistImage(

@@ -56,7 +56,7 @@ export default async function DashboardPage({
         );
       } else if (origenFilter === "prospection") {
         opportunities = opportunities.filter((o) =>
-          (["places_api", "redes_sociales", "manual"] as LeadOrigen[]).includes(
+          (["places_api", "redes_sociales", "manual", "doctoralia"] as LeadOrigen[]).includes(
             (o.leads?.origen ?? "manual") as LeadOrigen,
           ),
         );

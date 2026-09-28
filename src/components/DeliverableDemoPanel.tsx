@@ -67,10 +67,61 @@ export function DeliverableDemoPanel({
   const [copied, setCopied] = useState(false);
   const [cambio, setCambio] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
+  const [htmlEditor, setHtmlEditor] = useState(false);
+  const [htmlDraft, setHtmlDraft] = useState("");
+  const [htmlBusy, setHtmlBusy] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
-  }, []);
+    try {
+      const key = `demo-cambio:${opportunityId}`;
+      const pending = sessionStorage.getItem(key);
+      if (pending) {
+        setCambio(pending);
+        sessionStorage.removeItem(key);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [opportunityId]);
+
+  async function openHtmlEditor() {
+    setHtmlBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/demo/edit?opportunity_id=${encodeURIComponent(opportunityId)}&tipo=${active}`,
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo cargar");
+      setHtmlDraft(data.html ?? "");
+      setHtmlEditor(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar el HTML");
+    }
+    setHtmlBusy(false);
+  }
+
+  async function saveHtml() {
+    setHtmlBusy(true);
+    setError(null);
+    setInfo(null);
+    try {
+      const res = await fetch("/api/demo/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opportunity_id: opportunityId, tipo: active, html: htmlDraft }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo guardar");
+      setInfo("HTML guardado (pasó revisión mobile)");
+      setHtmlEditor(false);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar");
+    }
+    setHtmlBusy(false);
+  }
 
   async function edit(body: { instruccion?: string; deshacer?: boolean }) {
     setEditing(body.deshacer ? "Deshaciendo…" : "Aplicando el cambio (~30–60 s)…");
@@ -249,7 +300,49 @@ export function DeliverableDemoPanel({
 
       {current && (
         <div className="rounded-md border border-border p-3">
-          <p className="text-sm font-semibold">Pedir un cambio</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold">Pedir un cambio</p>
+            <button
+              type="button"
+              disabled={htmlBusy || Boolean(loading)}
+              onClick={() => (htmlEditor ? setHtmlEditor(false) : openHtmlEditor())}
+              className="text-xs font-medium text-accent underline-offset-2 hover:underline disabled:opacity-60"
+            >
+              {htmlBusy ? "Cargando…" : htmlEditor ? "Cerrar editor HTML" : "Editor HTML preciso"}
+            </button>
+          </div>
+          {htmlEditor ? (
+            <div className="mt-2 flex flex-col gap-2">
+              <p className="text-xs text-muted">
+                Edita el HTML completo. Al guardar pasa revisión (viewport, truncado…). Preview a 390px abajo.
+              </p>
+              <textarea
+                value={htmlDraft}
+                onChange={(e) => setHtmlDraft(e.target.value)}
+                rows={16}
+                spellCheck={false}
+                className="w-full rounded-md border border-border bg-[#0f1115] px-2 py-2 font-mono text-[11px] leading-snug text-[#e6edf3]"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={htmlBusy || htmlDraft.length < 800}
+                  onClick={saveHtml}
+                  className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {htmlBusy ? "Guardando…" : "Guardar HTML"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHtmlEditor(false)}
+                  className="rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           <p className="text-xs text-muted">
             Escribe lo que te pidió el dueño, como se lo dirías a un diseñador.
           </p>
@@ -294,6 +387,8 @@ export function DeliverableDemoPanel({
           </div>
           {current.ultimo_cambio && (
             <p className="mt-1 text-[11px] text-muted">Último: {current.ultimo_cambio}</p>
+          )}
+            </>
           )}
         </div>
       )}

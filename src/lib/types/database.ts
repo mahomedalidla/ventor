@@ -1,4 +1,9 @@
-export type LeadOrigen = "places_api" | "app_interna" | "redes_sociales" | "manual";
+export type LeadOrigen =
+  | "places_api"
+  | "app_interna"
+  | "redes_sociales"
+  | "manual"
+  | "doctoralia";
 export type RedSocial = "instagram" | "facebook" | "tiktok";
 export type ProductEstado = "propuesto" | "validado" | "descartado";
 export type ModeloPrecio = "pago_unico" | "suscripcion" | "freemium";
@@ -97,6 +102,7 @@ export const ORIGEN_LABELS: Record<LeadOrigen, string> = {
   redes_sociales: "Redes sociales",
   manual: "Manual",
   app_interna: "App interna",
+  doctoralia: "Doctoralia",
 };
 
 export const STATUS_LABELS: Record<OpportunityStatus, string> = {

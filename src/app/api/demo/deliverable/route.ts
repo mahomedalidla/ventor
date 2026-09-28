@@ -4,6 +4,7 @@ import {
   pickDeliverableType,
   type DeliverableTipo,
 } from "@/lib/demo/deliverable";
+import { catalogFromSlots } from "@/lib/demo/catalog";
 import { applyAjustesToAssets, cleanAjustes } from "@/lib/demo/ajustes";
 import { isDemoMockup } from "@/lib/demo/types";
 import { alcanceDe, isPlanId, PLAN_NOMBRE, type PlanId } from "@/lib/sales/alcance";
@@ -94,7 +95,10 @@ export async function POST(request: Request) {
   const assets =
     !body.refresh_assets && reusable?.assets
       ? (reusable.assets as DemoAssets)
-      : await gatherDemoAssets(supabase, lead);
+      : await gatherDemoAssets(supabase, lead, {
+          tipo_negocio: lead.tipo_negocio,
+          zona: lead.zona,
+        });
 
   const aj = cleanAjustes(op.ajustes);
   const aMedida = (op.oferta as Offer | null)?.a_medida ?? null;
@@ -128,13 +132,22 @@ export async function POST(request: Request) {
     sameTipo?.public_slug ??
     makeSlug(tipo === "whatsapp" ? `${lead.nombre} whatsapp` : lead.nombre);
 
+  const catalog_items = catalogFromSlots(
+    slots,
+    new Map(slots.map((s) => {
+      const match = (isDemoMockup(op.demo_mockup) ? op.demo_mockup.items : [])
+        .find((it, i) => `item-${i}` === s.id || it.name === s.label);
+      return [s.id, match?.price_hint ?? "consultar"] as const;
+    })),
+  );
+
   const { error: updErr } = await supabase.from("demo_deliverables").upsert(
     {
       opportunity_id: op.id,
       tipo,
       html,
       public_slug: slug,
-      assets: { ...assets, slots },
+      assets: { ...assets, slots, catalog_items },
       engine,
       plan_id: plan,
       html_anterior: sameTipo?.html ?? null,

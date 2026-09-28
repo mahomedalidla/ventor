@@ -120,7 +120,7 @@ DIVERSIDAD (no negociable): esta página NO puede parecerse a la plantilla defau
 - Si NO hay foto, NO dejes un hueco vacío ni esperes a que el dueño mande fotos: usa un placeholder DISEÑADO <div class="shot-ph">nombre del ítem</div> (gradiente de la paleta + nombre). La página nace completa. El dueño podrá reemplazar esa foto después.
 - Recicla las fotos reales entre ítems si hay pocas; mejor repetir una foto real que dejar un recuadro muerto.
 
-QA VISUAL: todo <input> lleva <label> o aria-label. Nada de href="#". Nada de <img src="">. Nada de lorem/unsplash. HTML completo con <!doctype html> y </html>.`;
+QA VISUAL + MOBILE: todo <input> lleva <label> o aria-label y font-size ≥16px. Meta viewport obligatorio. Nada de href="#". Nada de <img src="">. Nada de lorem. No inventes URLs de unsplash.com — usa solo las de "imagenes". HTML completo con <!doctype html> y </html>. Debe verse bien en 390px.`;
 
 const INTERNAL_RULE = `CONFIDENCIAL — "dolencias_internas" son hallazgos de NUESTRO equipo de ventas (no tiene sitio, depende de apps, reseñas que se quejan, etc.).
 - NUNCA las menciones, cites ni insinúes en la página: nada de "antes / ahora", "ya no pierdas pedidos", "sin comisiones de Booking", "ahora sí contestamos", ni reseñas negativas.
@@ -164,7 +164,7 @@ PRODUCTO ESTRELLA (si "producto_estrella" no es null): es algo nuevo que el nego
 
 Reglas de contenido:
 - Usa el NOMBRE REAL del negocio, su zona y su teléfono real en los enlaces de WhatsApp (usa exactamente la URL wa_url dada).
-- Imágenes: usa ÚNICAMENTE las URLs dadas en "imagenes" y "logo". Nunca inventes URLs de imágenes ni uses placeholders/unsplash. Si no hay logo, crea un logotipo tipográfico elegante con las iniciales.
+- Imágenes: usa ÚNICAMENTE las URLs dadas en "imagenes" y "logo". Nunca inventes URLs ni uses unsplash.com directo. Si "stock_attribution" existe, pon un pie discreto con ese texto. Si no hay logo, crea un logotipo tipográfico elegante con las iniciales.
 - Reseñas: solo citas reales de la lista dada; puedes recortarlas, nunca inventarlas.
 - Nada de lorem ipsum, "Negocio demo", "Cliente ejemplo". Nada de paleta púrpura genérica.
 - Paleta: si hay "paleta_marca", ÚSALA (principal = botones/CTA/--a, secundario = fondos de tarjeta/secciones/--b, acento = estrellas/detalles/--c). Si no, deriva del logo o de la zona.
@@ -208,7 +208,12 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
           }
         : null,
       logo: assets.logo_url,
-      imagenes: assets.photos.map((p) => p.url),
+      imagenes: assets.photos.map((p) => ({
+        url: p.url,
+        label: p.label,
+        source: p.source ?? "places",
+      })),
+      stock_attribution: assets.stock_attribution ?? null,
       reseñas_reales: assets.reviews
         .filter((r) => r.text.trim() && (r.rating ?? 5) >= 4)
         .slice(0, 8),
