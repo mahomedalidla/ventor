@@ -366,6 +366,157 @@ export const CONVERSION_PROFILES: Record<CategoryId, ConversionProfile> = {
     evitar: ["Formularios largos", "Textos genéricos sin casos"],
   },
 
+  veterinaria: {
+    categoria: "veterinaria",
+    objetivo: "Que agende cita / estética o que escriba por una urgencia",
+    cta_primario: "Agendar por WhatsApp",
+    cta_secundario: "Urgencias: escribir ahora",
+    quien_busca:
+      "Dueño preocupado por su mascota (a veces de noche o en emergencia), o que busca vacunas y baño; quiere saber si atienden hoy y que traten bien a su mascota",
+    como_busca: [
+      "“veterinaria cerca de mí”",
+      "“veterinaria {zona}”",
+      "“veterinaria 24 horas {zona}”",
+      "“estética canina {zona}”",
+    ],
+    anatomia: [
+      { id: "hero", titulo: "Hero de confianza + urgencias", proposito: "Confirmar que atienden hoy y cómo contactar ya", elementos: [...HERO_BASE, "Aviso de urgencias (solo si el dueño lo confirma)"] },
+      { id: "servicios", titulo: "Servicios", proposito: "Que ubique lo que necesita su mascota", elementos: ["Consulta, vacunas, desparasitación, cirugía, estética", "Precio desde si existe", "Botón agendar por servicio"] },
+      { id: "equipo", titulo: "Quién atiende", proposito: "Confianza: médico con nombre y cédula", elementos: ["Nombre del médico / equipo", "Fotos reales con mascotas"] },
+      { id: "como_agendar", titulo: "Cómo agendar en 3 pasos", proposito: "Quitar fricción", elementos: ["Elige servicio → día y hora por WhatsApp → confirmación"] },
+      { id: "resenas", titulo: "Lo que dicen otros dueños", proposito: "Prueba social emocional", elementos: ["Reseñas reales que mencionan trato a la mascota"] },
+      { id: "galeria", titulo: "Pacientes felices", proposito: "Conexión emocional", elementos: ["Fotos reales de mascotas atendidas"] },
+      CIERRE_BASE,
+    ],
+    confianza: ["Médico con nombre (y cédula si la hay)", "Reseñas sobre el trato a la mascota", "Fotos reales de la clínica", "Horario claro"],
+    urgencia: ["Atención hoy / citas del día", "Campañas de vacunación (solo si existen)"],
+    friccion: [
+      { duda: "¿Atienden urgencias?", respuesta: "Escríbenos por WhatsApp y te decimos al momento si podemos atenderte." },
+      { duda: "¿Están abiertos hoy?", respuesta: "Nuestro horario: {horario}." },
+      { duda: "¿Cuánto cuesta la consulta?", respuesta: "Pregúntanos por WhatsApp según el servicio y te damos el precio." },
+      { duda: "¿Dónde están?", respuesta: "Estamos en {direccion}. Toca “Cómo llegar”." },
+    ],
+    promesas: [
+      { titulo: "Agenda en un toque", texto: "Cita, vacunas o baño por WhatsApp." },
+      { titulo: "Trato con cariño", texto: "Tu mascota en manos de quien sabe." },
+      { titulo: "Cómo llegar", texto: "Abre el mapa directo desde aquí." },
+    ],
+    evitar: ["Fotos de stock de perros", "Prometer 24 horas si no está confirmado", "Esconder el WhatsApp"],
+  },
+
+  tours: {
+    categoria: "tours",
+    objetivo: "Reservar el tour (idealmente con anticipo)",
+    cta_primario: "Reservar por WhatsApp",
+    cta_secundario: "Ver tours y precios",
+    quien_busca:
+      "Turista en el celular, a veces desde el hotel o la playa, decidiendo hoy o mañana; compara precio, duración, qué incluye y reseñas; a veces en inglés",
+    como_busca: [
+      "“tours en {zona}”",
+      "“paseo en lancha {zona}”",
+      "“qué hacer en {zona}”",
+      "“{nombre} precios”",
+    ],
+    anatomia: [
+      { id: "hero", titulo: "Hero de experiencia", proposito: "Vender la experiencia en un pantallazo y abrir la reserva", elementos: [...HERO_BASE, "Video/foto real de la experiencia"] },
+      { id: "tours", titulo: "Tours y precios", proposito: "Elegir sin preguntar", elementos: ["Nombre, duración, precio por persona", "Qué incluye / qué llevar", "Botón reservar por tour"] },
+      { id: "como_reservar", titulo: "Cómo reservar", proposito: "Certeza del proceso", elementos: ["Fecha y personas por WhatsApp → anticipo → confirmación", "Punto de encuentro"] },
+      { id: "resenas", titulo: "Viajeros que ya fueron", proposito: "Prueba social decisiva en turismo", elementos: ["Reseñas reales, destacar las que mencionan guía o experiencia"] },
+      { id: "galeria", titulo: "Galería", proposito: "Deseo", elementos: ["Fotos reales de la experiencia"] },
+      { id: "faq", titulo: "Antes de reservar", proposito: "Resolver clima, cancelación y niños", elementos: ["Qué pasa si llueve", "Edad mínima", "Formas de pago (si se confirman)"] },
+      CIERRE_BASE,
+    ],
+    confianza: ["Reseñas con fotos", "Precio por persona visible", "Qué incluye claro", "Guía con nombre"],
+    urgencia: ["Cupo limitado por salida (solo si es verdad)", "Temporada alta / fin de semana"],
+    friccion: [
+      { duda: "¿Cuánto cuesta por persona?", respuesta: "Los precios están en cada tour. Pregúntanos por WhatsApp por grupos." },
+      { duda: "¿Hay lugar para mañana?", respuesta: "Escríbenos por WhatsApp con la fecha y personas y te confirmamos al momento." },
+      { duda: "¿Qué pasa si hace mal clima?", respuesta: "Pregúntanos por WhatsApp nuestras condiciones de cambio de fecha." },
+      { duda: "¿Dónde es el punto de encuentro?", respuesta: "Nos vemos en {direccion}. Toca “Cómo llegar”." },
+    ],
+    promesas: [
+      { titulo: "Reserva directa", texto: "Aparta tu lugar por WhatsApp." },
+      { titulo: "Todo claro", texto: "Duración, precio y qué incluye antes de reservar." },
+      { titulo: "Punto de encuentro", texto: "Abre el mapa directo desde aquí." },
+    ],
+    evitar: ["Precios escondidos", "Fotos de stock del destino", "Prometer cancelación gratis sin confirmarlo"],
+  },
+
+  educacion: {
+    categoria: "educacion",
+    objetivo: "Que pida informes o agende una visita",
+    cta_primario: "Pedir informes por WhatsApp",
+    cta_secundario: "Agendar visita",
+    quien_busca:
+      "Papá o mamá comparando 2–4 opciones en temporada de inscripciones (o un adulto buscando clases); quiere confianza, costos aproximados, horarios y ubicación",
+    como_busca: [
+      "“escuelas en {zona}”",
+      "“kinder {zona}”",
+      "“clases de inglés {zona}”",
+      "“{nombre} colegiatura”",
+    ],
+    anatomia: [
+      { id: "hero", titulo: "Hero de confianza", proposito: "Qué nivel/clases, dónde y cómo pedir informes", elementos: [...HERO_BASE, "Inscripciones abiertas (solo si es verdad)"] },
+      { id: "oferta", titulo: "Oferta educativa", proposito: "Que identifique el nivel o clase", elementos: ["Niveles / cursos", "Horarios", "Edades"] },
+      { id: "diferenciales", titulo: "Por qué aquí", proposito: "Diferenciarse", elementos: ["Método, grupos, idiomas, instalaciones (solo lo confirmado)"] },
+      { id: "visita", titulo: "Agenda tu visita", proposito: "El paso que más convierte", elementos: ["Visita guiada / clase muestra por WhatsApp"] },
+      { id: "resenas", titulo: "Lo que dicen los papás", proposito: "Prueba social", elementos: ["Reseñas reales"] },
+      { id: "galeria", titulo: "Instalaciones", proposito: "Seguridad y confianza", elementos: ["Fotos reales de salones y áreas"] },
+      CIERRE_BASE,
+    ],
+    confianza: ["Fotos reales de instalaciones", "Reseñas de papás", "Horarios y niveles claros", "Ubicación visible"],
+    urgencia: ["Inscripciones abiertas / cupo por grupo (solo si es verdad)", "Inicio de ciclo o de curso"],
+    friccion: [
+      { duda: "¿Cuánto es la colegiatura?", respuesta: "Pídenos informes por WhatsApp y te mandamos costos y requisitos." },
+      { duda: "¿Qué horarios tienen?", respuesta: "Nuestro horario: {horario}. Pregúntanos por los horarios de cada nivel." },
+      { duda: "¿Puedo conocer la escuela?", respuesta: "Sí, agenda tu visita por WhatsApp." },
+      { duda: "¿Dónde están?", respuesta: "Estamos en {direccion}." },
+    ],
+    promesas: [
+      { titulo: "Informes al momento", texto: "Costos y requisitos por WhatsApp." },
+      { titulo: "Conócenos", texto: "Agenda una visita cuando te acomode." },
+      { titulo: "Fácil de llegar", texto: "Abre el mapa desde aquí." },
+    ],
+    evitar: ["Publicar costos no confirmados", "Fotos de stock de niños", "Formularios largos"],
+  },
+
+  inmobiliaria: {
+    categoria: "inmobiliaria",
+    objetivo: "Que pregunte por una propiedad específica o agende visita",
+    cta_primario: "Preguntar por WhatsApp",
+    cta_secundario: "Ver propiedades",
+    quien_busca:
+      "Comprador o inquilino (local o foráneo/extranjero en costa) comparando opciones; quiere precio, ubicación, fotos reales y saber si aceptan crédito",
+    como_busca: [
+      "“casas en venta {zona}”",
+      "“renta de departamentos {zona}”",
+      "“terrenos en {zona}”",
+      "“inmobiliaria {zona}”",
+    ],
+    anatomia: [
+      { id: "hero", titulo: "Hero con buscador simple", proposito: "Qué venden/rentan y dónde, con contacto inmediato", elementos: [...HERO_BASE, "Filtros simples: venta/renta, zona"] },
+      { id: "propiedades", titulo: "Propiedades destacadas", proposito: "Que encuentre una que le interese", elementos: ["Foto, precio, m², recámaras", "Botón WhatsApp por propiedad con mensaje prellenado"] },
+      { id: "proceso", titulo: "Cómo comprar / rentar con nosotros", proposito: "Quitar miedo al trámite", elementos: ["Visita → apartado → trámite", "Crédito (solo si lo manejan)"] },
+      { id: "asesor", titulo: "Tu asesor", proposito: "Confianza personal", elementos: ["Nombre y foto real del asesor"] },
+      { id: "resenas", titulo: "Clientes", proposito: "Prueba social", elementos: ["Reseñas reales"] },
+      CIERRE_BASE,
+    ],
+    confianza: ["Asesor con nombre y cara", "Fotos reales de cada propiedad", "Precio visible", "Reseñas"],
+    urgencia: ["Propiedades nuevas esta semana", "Preventa (solo si existe)"],
+    friccion: [
+      { duda: "¿Aceptan crédito Infonavit/bancario?", respuesta: "Pregúntanos por WhatsApp y te decimos qué opciones aplican." },
+      { duda: "¿Puedo ir a verla?", respuesta: "Sí, agenda tu visita por WhatsApp." },
+      { duda: "¿El precio es negociable?", respuesta: "Escríbenos por WhatsApp y lo platicamos." },
+      { duda: "¿Dónde está su oficina?", respuesta: "Estamos en {direccion}." },
+    ],
+    promesas: [
+      { titulo: "Pregunta por la que te gusta", texto: "WhatsApp directo por propiedad." },
+      { titulo: "Visita cuando quieras", texto: "Agenda por mensaje." },
+      { titulo: "Te acompañamos", texto: "Del primer mensaje a la entrega de llaves." },
+    ],
+    evitar: ["Propiedades sin precio ni fotos", "Fotos de stock", "Prometer crédito sin confirmarlo"],
+  },
+
   general: {
     categoria: "general",
     objetivo: "Contacto por WhatsApp",

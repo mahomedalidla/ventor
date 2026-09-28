@@ -188,6 +188,12 @@ export default async function OportunidadPage({
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">
           Flujo de venta
         </p>
+        {offer?.a_medida && !offer.a_medida.confirmado && (
+          <p className="mb-2 rounded-md bg-warning/10 px-3 py-2 text-xs">
+            Producto nuevo con precios de referencia: confírmalos en “Qué
+            ofrecer” antes de mandar el cierre.
+          </p>
+        )}
         <SalesFlow
           opportunityId={data.id}
           telefono={lead?.telefono ?? null}

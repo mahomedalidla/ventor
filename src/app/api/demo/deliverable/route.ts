@@ -7,6 +7,7 @@ import {
 import { cleanAjustes } from "@/lib/demo/ajustes";
 import { isDemoMockup } from "@/lib/demo/types";
 import { alcanceDe, isPlanId, PLAN_NOMBRE, type PlanId } from "@/lib/sales/alcance";
+import type { Offer } from "@/lib/sales/offer";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
   const { data: op, error } = await supabase
     .from("opportunities")
     .select(
-      "id, producto_sugerido_texto, demo_mockup, ajustes, plan_elegido, products(nombre), leads(id, nombre, tipo_negocio, zona, telefono, google_place_id, perfil_url, metadata)",
+      "id, producto_sugerido_texto, demo_mockup, ajustes, plan_elegido, oferta, products(nombre), leads(id, nombre, tipo_negocio, zona, telefono, google_place_id, perfil_url, metadata)",
     )
     .eq("id", body.opportunity_id)
     .single();
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
       : await gatherDemoAssets(supabase, lead);
 
   const aj = cleanAjustes(op.ajustes);
+  const aMedida = (op.oferta as Offer | null)?.a_medida ?? null;
   const plan: PlanId = isPlanId(body.plan)
     ? body.plan
     : isPlanId(op.plan_elegido)
@@ -120,6 +122,7 @@ export async function POST(request: Request) {
     tipo,
     alcance: alcanceDe(tipo, plan),
     notas_dueno: aj.notas ?? null,
+    estrella: aMedida ? { producto: aMedida.que_es || aMedida.producto, enfoque: aMedida.demo_enfoque } : null,
   });
 
   const slug =

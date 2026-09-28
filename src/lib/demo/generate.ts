@@ -229,6 +229,14 @@ function paletteFor(playbookId: string): DemoMockup["palette"] {
         accent: "#8b4513",
         muted: "#6e6256",
       };
+    case "tours":
+      return { bg: "#eaf4f6", surface: "#ffffff", text: "#0c1f24", accent: "#0e7490", muted: "#4f6970" };
+    case "veterinaria":
+      return { bg: "#f2f6ee", surface: "#ffffff", text: "#172012", accent: "#3f7d20", muted: "#5d6b55" };
+    case "educacion":
+      return { bg: "#eef1f8", surface: "#ffffff", text: "#121829", accent: "#1d4ed8", muted: "#586079" };
+    case "inmobiliaria":
+      return { bg: "#f3f1ec", surface: "#ffffff", text: "#191712", accent: "#1f3a5f", muted: "#66625a" };
     case "salud":
       return {
         bg: "#eef5f2",
@@ -282,6 +290,38 @@ export function itemsFor(
       { name: "Consulta / cita", price_hint: "desde $400" },
       { name: "Seguimiento", price_hint: "$250" },
       { name: "Paquete 3 sesiones", price_hint: "$1,100" },
+    ];
+  }
+  if (playbookId === "veterinaria") {
+    return [
+      { name: "Consulta general", price_hint: "desde $350" },
+      { name: "Vacunas", price_hint: "desde $250" },
+      { name: "Baño y corte", price_hint: "desde $300", note: "Según tamaño" },
+      { name: "Desparasitación", price_hint: "desde $150" },
+    ];
+  }
+  if (playbookId === "tours") {
+    const base = [
+      { name: "Paseo en lancha", price_hint: "$450 p/p", note: "2 horas" },
+      { name: "Tour de snorkel", price_hint: "$650 p/p", note: "Incluye equipo" },
+      { name: "Atardecer en el mar", price_hint: "$550 p/p" },
+    ];
+    if (/ballena/.test(lower)) base.unshift({ name: "Avistamiento de ballenas", price_hint: "$900 p/p", note: "Temporada dic–mar" });
+    if (/pesca/.test(lower)) base.unshift({ name: "Pesca deportiva", price_hint: "desde $3,500", note: "Hasta 4 personas" });
+    return base.slice(0, 4);
+  }
+  if (playbookId === "educacion") {
+    return [
+      { name: "Preescolar", price_hint: "Pedir informes" },
+      { name: "Primaria", price_hint: "Pedir informes" },
+      { name: "Clases extra (inglés, música)", price_hint: "Pedir informes" },
+    ];
+  }
+  if (playbookId === "inmobiliaria") {
+    return [
+      { name: "Casa 3 recámaras", price_hint: "Preguntar precio", note: "Con jardín" },
+      { name: "Departamento en renta", price_hint: "Preguntar precio" },
+      { name: "Terreno", price_hint: "Preguntar precio", note: "Listo para construir" },
     ];
   }
   return [

@@ -1,5 +1,6 @@
 import { conversionBrief } from "@/lib/categories/conversion";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
+import { vocabFor } from "@/lib/categories/vocab";
 import type { Offer } from "@/lib/sales/offer";
 import type { CadenceStep, Etapa, Objecion, SalesPlan } from "@/lib/sales/types";
 
@@ -65,6 +66,7 @@ REGLAS DE COPY (obligatorias):
 - DESPEDIDA (break-up): corto, sin culpa, deja la puerta abierta ("¿lo dejo aquí o lo retomamos en otro momento?").
 - NUNCA exhibir sus problemas de forma humillante ("su página no sirve", "sus clientes se quejan"). Plantéalo como oportunidad o como lo que ganan sus clientes.
 - No inventes datos (resultados, clientes, cifras) que no estén en los datos.
+- PRODUCTO A LA MEDIDA (si oferta.a_medida existe): es nuevo, hecho para este negocio. Nunca digas que ya lo usan otros negocios. La prueba es un PILOTO: publicamos su página presentándolo y medimos cuántos clientes lo piden antes de construirlo completo; la instalación se paga después y en 2 partes. Explícalo con oferta.a_medida.que_es.
 - Usa emojis con moderación (0–1 por mensaje).
 - tip: consejo táctico breve para el vendedor en ese paso (qué hacer si responde X).
 
@@ -162,10 +164,7 @@ function templatePlan(input: PlanInput): SalesPlan {
   const prueba = input.offer.prueba;
   const rec = input.offer.planes.find((p) => p.recomendado)!;
   const es = input.offer.planes.find((p) => p.id === "esencial")!;
-  const cliente =
-    playbook.id === "hoteleria" ? "huésped" : playbook.id === "salud" ? "paciente" : "cliente";
-  const accion =
-    playbook.id === "hoteleria" ? "reserva" : playbook.id === "comida" ? "pedido" : playbook.id === "salud" || playbook.id === "belleza" ? "cita" : "mensaje";
+  const { cliente, accion } = vocabFor(playbook.id);
   const demo = input.demoTipo === "landing" ? "una página" : "una demo de su WhatsApp atendiendo solo";
   const halago = rating && count ? `Vi que ${n} tiene ${rating} con ${count} en Google, ¡se nota que la gente los quiere!` : `Vi ${n} en Google aquí en ${zona}.`;
   const fmt = (v: number) => `$${v.toLocaleString("es-MX")}`;
@@ -184,7 +183,11 @@ function templatePlan(input: PlanInput): SalesPlan {
       tip: "Cualquier respuesta sirve para conectar con la demo: “justo eso lo resuelve lo que le mandé”.",
     },
     oferta_prueba: {
-      mensaje: `Le propongo algo: se la dejo funcionando ${prueba.dias} días gratis. Solo la ponemos como “sitio web” en su Google Maps y su WhatsApp (yo le guío, 2 min), así quien ya lo busca la ve. ${prueba.condicion} ¿Arrancamos hoy o mañana?`,
+      mensaje: input.offer.a_medida
+        ? `Le propongo algo: antes de construir ${input.offer.a_medida.que_es.toLowerCase()}, publicamos su página ${prueba.dias} días gratis presentándolo y medimos cuántos clientes lo piden. Solo la ponemos como “sitio web” en su Google Maps (yo le guío). ${prueba.condicion} ¿Arrancamos hoy o mañana?`
+        : prueba.dias
+          ? `Le propongo algo: se la dejo funcionando ${prueba.dias} días gratis. Solo la ponemos como “sitio web” en su Google Maps y su WhatsApp (yo le guío, 2 min), así quien ya lo busca la ve. ${prueba.condicion} ¿Arrancamos hoy o mañana?`
+          : `Le propongo algo: le termino el diseño final con sus datos sin costo, y usted paga solo cuando lo apruebe. ¿Arrancamos esta semana?`,
       tip: "Al aceptar: “Aceptó: iniciar prueba” y luego “Mandar instrucciones al dueño” en Activación. Si no sabe, hazlo con él por llamada.",
     },
     check_prueba: {

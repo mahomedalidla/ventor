@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { PromoteProductButton } from "@/components/PromoteProductButton";
+import { agruparDemanda, type DemandaRow } from "@/lib/sales/demanda";
 import { createClient } from "@/lib/supabase/server";
 
 const TONO_LABEL: Record<string, string> = {
@@ -21,6 +23,16 @@ export default async function AprendizajesPage() {
     .limit(40);
 
   const rows = insights ?? [];
+
+  const { data: propuestos } = await supabase
+    .from("opportunities")
+    .select("id, producto_sugerido_texto, status, oferta, leads(nombre, tipo_negocio, zona)")
+    .is("product_id", null)
+    .not("producto_sugerido_texto", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  const demanda = agruparDemanda((propuestos ?? []) as unknown as DemandaRow[]);
+  const money = (n: number | null) => (n == null ? "—" : `$${n.toLocaleString("es-MX")}`);
 
   const tonoCounts = rows.reduce<Record<string, number>>((acc, r) => {
     if (!r.tono_sugerido) return acc;
@@ -52,6 +64,61 @@ export default async function AprendizajesPage() {
             nuevas oportunidades ya reciben este sesgo en el prompt.
           </p>
         </div>
+      )}
+
+      {demanda.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <div>
+            <h2 className="text-sm font-bold">Lo que está pidiendo el mercado</h2>
+            <p className="text-xs text-muted">
+              Productos que la IA propuso por las dolencias de los leads y que no
+              están en tu catálogo. Si se repiten en varios negocios o ya cerraste
+              uno, conviene construirlo.
+            </p>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {demanda.slice(0, 15).map((g) => (
+              <li
+                key={g.opportunity_ids[0]}
+                className={`rounded-lg border bg-surface p-3 ${g.candidato ? "border-accent" : "border-border"}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold">
+                    {g.nombre}
+                    {g.candidato ? " ⭐" : ""}
+                  </p>
+                  <span className="shrink-0 text-xs font-bold text-accent">
+                    {g.negocios.length} negocio{g.negocios.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  {g.rubros.join(", ") || "—"} · {g.zonas.join(", ") || "—"}
+                  {g.cerradas ? ` · ${g.cerradas} cerrada${g.cerradas === 1 ? "" : "s"}` : ""}
+                  {g.rechazadas ? ` · ${g.rechazadas} rechazada${g.rechazadas === 1 ? "" : "s"}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  {g.linea === "a_medida" ? `A la medida${g.complejidad ? ` · complejidad ${g.complejidad}` : ""}` : `Se vende como ${g.linea}`}
+                  {g.precio_ref ? ` · ref. ${money(g.precio_ref)} + ${money(g.mensual_ref)}/mes` : ""}
+                </p>
+                {g.variantes.length > 0 && (
+                  <p className="mt-1 text-[11px] text-muted">También como: {g.variantes.join(" · ")}</p>
+                )}
+                {g.candidato && (
+                  <div className="mt-2">
+                    <PromoteProductButton
+                      nombre={g.nombre}
+                      descripcion={`Nació de la demanda: ${g.negocios.slice(0, 5).join(", ")}.`}
+                      linea={g.linea}
+                      complejidad={g.complejidad}
+                      precioBase={g.precio_ref}
+                      opportunityIds={g.opportunity_ids}
+                    />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {error && (

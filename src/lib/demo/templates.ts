@@ -1,4 +1,5 @@
 import type { DemoAssets } from "@/lib/demo/assets";
+import { vocabFor } from "@/lib/categories/vocab";
 import type { Secciones } from "@/lib/sales/alcance";
 
 export type Benefit = { titulo: string; texto: string };
@@ -21,6 +22,7 @@ export type DeliverableData = {
   assets: DemoAssets;
   secciones: Secciones;
   con_bot: boolean;
+  estrella: { titulo: string; texto: string } | null;
 };
 
 export function esc(s: string | null | undefined): string {
@@ -45,21 +47,11 @@ function initials(nombre: string): string {
     .join("") || nombre.slice(0, 2).toUpperCase();
 }
 
-const LD_TYPE: Record<string, string> = {
-  comida: "Restaurant",
-  hoteleria: "Hotel",
-  salud: "MedicalClinic",
-  belleza: "BeautySalon",
-  automotriz: "AutoRepair",
-  fitness: "ExerciseGym",
-  retail: "Store",
-};
-
 function localBusinessLd(d: DeliverableData): Record<string, unknown> {
   const tel = d.wa_url.match(/wa\.me\/(\d+)/)?.[1];
   return {
     "@context": "https://schema.org",
-    "@type": LD_TYPE[d.playbook_id] ?? "LocalBusiness",
+    "@type": vocabFor(d.playbook_id).ld_type,
     name: d.nombre,
     ...(d.assets.address ? { address: d.assets.address } : {}),
     ...(tel ? { telephone: `+${tel}` } : {}),
@@ -195,6 +187,13 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 40px}
   </div>
 </header>
 
+${d.estrella ? `<section class="final reveal">
+  <div class="eyebrow">Nuevo en ${esc(d.nombre)}</div>
+  <h2>${esc(d.estrella.titulo)}</h2>
+  <p style="opacity:.85;max-width:560px;margin:12px auto 22px">${esc(d.estrella.texto)}</p>
+  <a class="btn" href="${esc(d.wa_url)}" target="_blank" rel="noopener">Lo quiero →</a>
+</section>` : ""}
+
 ${beneficios.length ? `<section>
   <div class="pains">${beneficios
     .map(
@@ -212,7 +211,7 @@ ${s.stats && d.assets.rating ? `<section class="reveal">
 
 ${d.items.length ? `<section>
   <div class="eyebrow reveal">${esc(d.offer_label)}</div>
-  <h2 class="title reveal">${d.playbook_id === "hoteleria" ? "Elige tu habitación" : d.playbook_id === "comida" ? "Elige y pide por WhatsApp" : "Elige lo que necesitas"}</h2>
+  <h2 class="title reveal">${esc(vocabFor(d.playbook_id).oferta_titulo)}</h2>
   <div class="items">${d.items
     .map(
       (it) => `<div class="item reveal"><div><strong>${esc(it.name)}</strong>${it.note ? `<small>${esc(it.note)}</small>` : ""}</div><div class="p">${esc(it.price_hint)}</div></div>`,

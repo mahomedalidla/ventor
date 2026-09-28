@@ -1,4 +1,5 @@
 import { resolvePlaybook } from "@/lib/categories/playbooks";
+import { vocabFor } from "@/lib/categories/vocab";
 import type { DemoAssets } from "@/lib/demo/assets";
 import { itemsFor } from "@/lib/demo/generate";
 import {
@@ -36,6 +37,8 @@ export type DeliverableInput = {
   tipo: DeliverableTipo;
   alcance: Alcance;
   notas_dueno: string | null;
+  /** Producto fuera de catálogo que la demo debe presentar como pieza central */
+  estrella: { producto: string; enfoque: string } | null;
 };
 
 export type DeliverableResult = {
@@ -130,6 +133,8 @@ ALCANCE DEL PLAN (lo que se muestra es exactamente lo que se entrega):
 
 DATOS DEL DUEÑO: "datos_confirmados_por_el_dueno" son hechos verificados; tienen prioridad sobre Google y puedes afirmarlos.
 
+PRODUCTO ESTRELLA (si "producto_estrella" no es null): es algo nuevo que el negocio va a ofrecer. Dale una sección propia y destacada justo después del hero, desde el punto de vista del cliente final (cómo lo usa y qué gana, según "producto_estrella.enfoque"), con CTA de WhatsApp para pedirlo/apuntarse. Preséntalo como del negocio (nunca de un proveedor) y sin afirmar que ya lo usan muchos. En la demo de WhatsApp, la conversación muestra al cliente final usándolo.
+
 Reglas de contenido:
 - Usa el NOMBRE REAL del negocio, su zona y su teléfono real en los enlaces de WhatsApp (usa exactamente la URL wa_url dada).
 - Imágenes: usa ÚNICAMENTE las URLs dadas en "imagenes" y "logo". Nunca inventes URLs de imágenes ni uses placeholders/unsplash. Si no hay logo, crea un logotipo tipográfico elegante con las iniciales.
@@ -151,6 +156,7 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
         no_incluye: input.alcance.no_incluye,
       },
       datos_confirmados_por_el_dueno: input.notas_dueno,
+      producto_estrella: input.estrella,
       negocio: {
         nombre: lead.nombre,
         rubro: lead.tipo_negocio,
@@ -335,18 +341,6 @@ function faqFrom(input: DeliverableInput, conv: ConversionProfile): FaqItem[] {
     .filter((f): f is FaqItem => f !== null);
 }
 
-const OFFER_LABEL: Record<string, string> = {
-  comida: "Menú",
-  hoteleria: "Habitaciones",
-  salud: "Servicios",
-  belleza: "Servicios",
-  automotriz: "Servicios",
-  fitness: "Planes",
-  retail: "Catálogo",
-  servicios: "Servicios",
-  general: "Lo que ofrecemos",
-};
-
 function baseData(input: DeliverableInput): DeliverableData {
   const playbook = resolvePlaybook(input.lead.tipo_negocio ?? "general");
   const conv = conversionProfile(playbook.id);
@@ -369,7 +363,7 @@ function baseData(input: DeliverableInput): DeliverableData {
       `${playbook.label} en ${input.lead.zona ?? "Nayarit"}`,
     beneficios: benefitsFrom(input, conv),
     faq: faqFrom(input, conv),
-    offer_label: OFFER_LABEL[playbook.id] ?? "Lo que ofrecemos",
+    offer_label: vocabFor(playbook.id).oferta_label,
     items: m?.items?.length
       ? m.items
       : itemsFor(
@@ -383,6 +377,9 @@ function baseData(input: DeliverableInput): DeliverableData {
     assets: input.assets,
     secciones: input.alcance.secciones,
     con_bot: input.alcance.plan === "completo",
+    estrella: input.estrella
+      ? { titulo: input.estrella.producto, texto: input.estrella.enfoque }
+      : null,
   };
 }
 
@@ -438,7 +435,55 @@ function chatScript(d: DeliverableData): {
     .map((i) => `• ${i.name} — ${i.price_hint}`)
     .join("\n");
 
-  if (d.playbook_id === "hoteleria") {
+  const tipoChat = vocabFor(d.playbook_id).chat;
+
+  if (d.playbook_id === "tours") {
+    return {
+      script: [
+        { from: "cliente", text: "Hola! ¿Tienen lugar mañana para 4 personas?" },
+        { from: "bot", text: `¡Hola! Bienvenido a ${d.nombre} 🌊\nEstos son los tours de mañana:`, buttons: items.slice(0, 3).map((i) => i.name) },
+        { from: "cliente", text: items[0].name },
+        { from: "bot", text: `¡Buena elección! ${items[0].name}: ${items[0].price_hint} por persona.\nPara 4 personas, ¿salida de las 9:00?`, buttons: ["Sí, 9:00", "Otro horario"] },
+        { from: "cliente", text: "Sí, 9:00" },
+        { from: "bot", text: "Listo ✅ Sus 4 lugares quedan apartados.\nLe mando los datos del anticipo y el punto de encuentro 📍" },
+      ],
+      owner: [
+        "Contesta al turista al momento, aunque usted esté en el mar",
+        "Lugares apartados con anticipo",
+        "También atiende en inglés",
+        "Aviso inmediato de cada reserva",
+      ],
+      toast: `Nueva reserva para ${d.nombre}`,
+    };
+  }
+
+  if (tipoChat === "informes") {
+    const quiere =
+      d.playbook_id === "inmobiliaria"
+        ? { pregunta: `Hola, vi ${items[0].name}, ¿sigue disponible?`, paso: "¿Le gustaría ir a verla? Tengo estos horarios:", confirm: "Visita agendada ✅ Le mando la ubicación exacta y el nombre de su asesor." }
+        : d.playbook_id === "educacion"
+          ? { pregunta: "Hola, quiero informes para inscribir a mi hijo", paso: "Con gusto le enseñamos la escuela. ¿Qué día le acomoda la visita?", confirm: "Visita agendada ✅ Le esperamos. Le mando costos y requisitos por aquí." }
+          : { pregunta: "Hola, ¿me pueden cotizar?", paso: "Para darle precio exacto, ¿cuándo podemos revisarlo?", confirm: "Agendado ✅ Le confirmamos un día antes." };
+    return {
+      script: [
+        { from: "cliente", text: quiere.pregunta },
+        { from: "bot", text: `¡Hola! Gracias por escribir a ${d.nombre} 😊\n¿Qué le interesa?`, buttons: items.slice(0, 3).map((i) => i.name) },
+        { from: "cliente", text: items[0].name },
+        { from: "bot", text: `${items[0].name}: ${items[0].price_hint}.\n${quiere.paso}`, buttons: ["Mañana 10:00", "Mañana 17:00", "Sábado"] },
+        { from: "cliente", text: "Mañana 17:00" },
+        { from: "bot", text: quiere.confirm },
+      ],
+      owner: [
+        "Responde al instante, antes de que pregunte a otro",
+        "Cada interesado llega con lo que busca y su horario",
+        "Usted solo atiende a quien ya agendó",
+        "Aviso inmediato de cada interesado nuevo",
+      ],
+      toast: `Nuevo interesado en ${d.nombre}`,
+    };
+  }
+
+  if (d.playbook_id === "hoteleria" || tipoChat === "reserva") {
     return {
       script: [
         { from: "cliente", text: "Hola, ¿tienen habitación para este fin de semana? Somos 2" },
@@ -458,7 +503,7 @@ function chatScript(d: DeliverableData): {
     };
   }
 
-  if (d.playbook_id === "salud" || d.playbook_id === "belleza" || d.playbook_id === "fitness") {
+  if (tipoChat === "cita") {
     return {
       script: [
         { from: "cliente", text: "Hola, ¿me pueden dar una cita?" },

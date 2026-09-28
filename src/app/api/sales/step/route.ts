@@ -1,10 +1,17 @@
 import { isPlanId } from "@/lib/sales/alcance";
-import type { Offer } from "@/lib/sales/offer";
+import { resumenDe, type Offer } from "@/lib/sales/offer";
 import type { SalesPlan } from "@/lib/sales/types";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-type Action = "enviado" | "respondio" | "ir_a" | "iniciar_prueba" | "toque" | "elegir_plan";
+type Action =
+  | "enviado"
+  | "respondio"
+  | "ir_a"
+  | "iniciar_prueba"
+  | "toque"
+  | "elegir_plan"
+  | "confirmar_oferta";
 
 const DAY = 864e5;
 
@@ -23,6 +30,7 @@ export async function POST(request: Request) {
     paso?: number;
     etapa?: string;
     plan?: string;
+    precios?: Partial<Record<string, { instalacion?: number; mensual?: number }>>;
   };
   try {
     body = await request.json();
@@ -35,11 +43,51 @@ export async function POST(request: Request) {
 
   const { data: op, error } = await supabase
     .from("opportunities")
-    .select("id, status, paso_actual, plan_venta, oferta")
+    .select("id, status, paso_actual, plan_venta, oferta, plan_elegido")
     .eq("id", body.opportunity_id)
     .single();
   if (error || !op) {
     return NextResponse.json({ error: error?.message ?? "No encontrada" }, { status: 404 });
+  }
+
+  if (body.action === "confirmar_oferta") {
+    const offer = op.oferta as Offer | null;
+    if (!offer) return NextResponse.json({ error: "Sin oferta" }, { status: 400 });
+    const fmt = (v: number) => `$${v.toLocaleString("es-MX")}`;
+    const reemplazos: Array<[string, string]> = [];
+    const planes = offer.planes.map((p) => {
+      const nuevo = body.precios?.[p.id];
+      const instalacion = Math.round(Number(nuevo?.instalacion ?? p.instalacion));
+      const mensual = Math.round(Number(nuevo?.mensual ?? p.mensual));
+      if (!(instalacion >= 0 && mensual >= 0)) return p;
+      if (instalacion !== p.instalacion) reemplazos.push([fmt(p.instalacion), fmt(instalacion)]);
+      if (mensual !== p.mensual) reemplazos.push([fmt(p.mensual), fmt(mensual)]);
+      return { ...p, instalacion, mensual };
+    });
+    const rec = planes.find((p) => p.recomendado) ?? planes[0];
+    const oferta: Offer = {
+      ...offer,
+      planes,
+      ancla_diaria: `menos de $${Math.ceil(rec.mensual / 30)} al día`,
+      resumen: resumenDe({ planes, prueba: offer.prueba, instalacion_diferida: offer.instalacion_diferida }),
+      ...(offer.a_medida ? { a_medida: { ...offer.a_medida, confirmado: true } } : {}),
+    };
+    const swap = (s: string) => reemplazos.reduce((acc, [a, b]) => acc.split(a).join(b), s);
+    const pv = op.plan_venta as SalesPlan | null;
+    const plan_venta = pv
+      ? {
+          ...pv,
+          pasos: pv.pasos.map((p) => ({ ...p, mensaje: swap(p.mensaje) })),
+          objeciones: pv.objeciones.map((o) => ({ ...o, respuesta: swap(o.respuesta) })),
+        }
+      : pv;
+    const elegido = planes.find((p) => p.id === (op.plan_elegido ?? "recomendado")) ?? rec;
+    const { error: updErr } = await supabase
+      .from("opportunities")
+      .update({ oferta, plan_venta, precio_sugerido: elegido.instalacion })
+      .eq("id", op.id);
+    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
   }
 
   if (body.action === "elegir_plan") {

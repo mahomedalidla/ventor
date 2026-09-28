@@ -24,6 +24,10 @@ export type CategoryId =
   | "fitness"
   | "retail"
   | "servicios"
+  | "veterinaria"
+  | "inmobiliaria"
+  | "tours"
+  | "educacion"
   | "general";
 
 export type ReviewPattern = {
@@ -65,6 +69,189 @@ const GENERIC_REVIEW: ReviewPattern[] = [
 ];
 
 export const CATEGORY_PLAYBOOKS: CategoryPlaybook[] = [
+  // Primero los rubros cuyos alias contienen palabras de otros ("clínica veterinaria", "renta de barcos")
+  {
+    id: "veterinaria",
+    label: "Veterinaria / mascotas",
+    aliases: [
+      "veterinaria",
+      "veterinario",
+      "clínica veterinaria",
+      "clinica veterinaria",
+      "estética canina",
+      "estetica canina",
+      "pet shop",
+      "mascotas",
+      "hotel para perros",
+      "guardería canina",
+      "guarderia canina",
+    ],
+    pricing_categoria: "automatizacion_whatsapp",
+    pain_context:
+      "Dueños de mascotas buscan con urgencia (emergencias) y necesitan saber si atienden hoy; citas, vacunas y estética se agendan por mensaje suelto y se olvidan.",
+    producto_prioridad: [
+      "Agenda de citas y estética por WhatsApp",
+      "Recordatorios de vacunas y desparasitación",
+      "Sitio con servicios, urgencias y ubicación",
+    ],
+    critical_capabilities: ["appointments", "whatsapp"],
+    growth: {
+      alto: { min_reviews: 50, min_rating: 4.5 },
+      estable: { min_reviews: 15, min_rating: 4.2 },
+      bajo_max_reviews: 6,
+    },
+    review_patterns: [
+      ...GENERIC_REVIEW,
+      { re: /urgencia|emergencia|madrugada|noche/i, label: "urgencias" },
+      { re: /cita|esper(a|ar)|turno/i, label: "citas / espera" },
+      { re: /caro|precio|cobr/i, label: "precio" },
+    ],
+    missing_capability_copy: {
+      appointments: "Sin agenda online — citas y estética dependen de llamadas.",
+      whatsapp: "Sin WhatsApp visible para urgencias o citas.",
+    },
+  },
+  {
+    id: "tours",
+    label: "Tours / turismo",
+    aliases: [
+      "tours",
+      "tour",
+      "agencia de viajes",
+      "renta de lanchas",
+      "lanchas",
+      "renta de barcos",
+      "barcos",
+      "yates",
+      "paseos en lancha",
+      "pesca deportiva",
+      "avistamiento de ballenas",
+      "surf",
+      "escuela de surf",
+      "buceo",
+      "snorkel",
+      "renta de cuatrimotos",
+      "cuatrimotos",
+      "tirolesa",
+      "ecoturismo",
+      "excursiones",
+    ],
+    pricing_categoria: "sitio_web_corporativo",
+    pain_context:
+      "Turistas deciden en el celular horas antes; si no ven precio, horarios y cómo reservar, se van con el que sí contesta o con la agencia del hotel.",
+    producto_prioridad: [
+      "Reservas de tours por WhatsApp con anticipo",
+      "Página con tours, precios y galería",
+      "Respuestas automáticas en inglés y español",
+    ],
+    critical_capabilities: ["booking", "whatsapp"],
+    growth: {
+      alto: { min_reviews: 40, min_rating: 4.6 },
+      estable: { min_reviews: 12, min_rating: 4.3 },
+      bajo_max_reviews: 5,
+    },
+    review_patterns: [
+      ...GENERIC_REVIEW,
+      { re: /reserv|lugar|cupo|lleno/i, label: "reservas / cupo" },
+      { re: /cancel|clima|reembolso/i, label: "cancelaciones" },
+      { re: /english|ingl[eé]s/i, label: "turista extranjero" },
+    ],
+    missing_capability_copy: {
+      booking: "Sin reserva online — el turista no sabe si hay lugar ni cómo apartar.",
+      whatsapp: "Sin WhatsApp visible para reservar el mismo día.",
+    },
+  },
+  {
+    id: "educacion",
+    label: "Escuelas / academias",
+    aliases: [
+      "escuela",
+      "colegio",
+      "preescolar",
+      "kinder",
+      "kínder",
+      "guardería",
+      "guarderia",
+      "primaria",
+      "secundaria",
+      "preparatoria",
+      "academia",
+      "clases de inglés",
+      "clases de ingles",
+      "idiomas",
+      "regularización",
+      "regularizacion",
+      "escuela de música",
+      "escuela de musica",
+      "academia de baile",
+      "escuela de manejo",
+    ],
+    pricing_categoria: "sitio_web_corporativo",
+    pain_context:
+      "Los papás comparan escuelas en temporada de inscripciones; preguntan colegiaturas, horarios y requisitos por mensaje y la respuesta tarda.",
+    producto_prioridad: [
+      "Página con oferta educativa y visita guiada por WhatsApp",
+      "Informes e inscripciones automáticas por WhatsApp",
+      "Avisos a papás por WhatsApp",
+    ],
+    critical_capabilities: ["appointments", "whatsapp"],
+    growth: {
+      alto: { min_reviews: 40, min_rating: 4.4 },
+      estable: { min_reviews: 12, min_rating: 4.1 },
+      bajo_max_reviews: 5,
+    },
+    review_patterns: [
+      ...GENERIC_REVIEW,
+      { re: /inscrip|colegiatura|cuota|mensualidad/i, label: "inscripciones / cuotas" },
+      { re: /maestr|profes/i, label: "maestros" },
+      { re: /comunicaci[oó]n|avis/i, label: "comunicación con papás" },
+    ],
+    missing_capability_copy: {
+      appointments: "Sin forma de agendar visita o pedir informes en línea.",
+      whatsapp: "Sin WhatsApp visible para informes e inscripciones.",
+    },
+  },
+  {
+    id: "inmobiliaria",
+    label: "Inmobiliaria / bienes raíces",
+    aliases: [
+      "inmobiliaria",
+      "bienes raíces",
+      "bienes raices",
+      "asesor inmobiliario",
+      "venta de casas",
+      "renta de casas",
+      "renta de departamentos",
+      "desarrollo inmobiliario",
+      "fraccionamiento",
+      "terrenos",
+      "lotes",
+      "renta vacacional",
+    ],
+    pricing_categoria: "sitio_web_corporativo",
+    pain_context:
+      "Publican en portales y Marketplace donde compiten con todos; los interesados preguntan lo mismo (precio, ubicación, crédito) y se enfrían si no responden rápido.",
+    producto_prioridad: [
+      "Catálogo de propiedades con WhatsApp por propiedad",
+      "Calificación automática de interesados por WhatsApp",
+      "Landing por desarrollo",
+    ],
+    critical_capabilities: ["catalog", "whatsapp"],
+    growth: {
+      alto: { min_reviews: 25, min_rating: 4.5 },
+      estable: { min_reviews: 8, min_rating: 4.2 },
+      bajo_max_reviews: 4,
+    },
+    review_patterns: [
+      ...GENERIC_REVIEW,
+      { re: /tr[aá]mite|escritura|papeles/i, label: "trámites" },
+      { re: /cr[eé]dito|infonavit|fovissste/i, label: "crédito" },
+    ],
+    missing_capability_copy: {
+      catalog: "Sin catálogo propio de propiedades — dependen de portales.",
+      whatsapp: "Sin WhatsApp directo por propiedad.",
+    },
+  },
   {
     id: "comida",
     label: "Comida / restaurante",
@@ -125,6 +312,7 @@ export const CATEGORY_PLAYBOOKS: CategoryPlaybook[] = [
       "airbnb",
       "hospedaje",
       "boutique hotel",
+      "hotel boutique",
       "casa de huéspedes",
       "glamping",
     ],
@@ -439,19 +627,36 @@ export const CATEGORY_FORM_OPTIONS: Array<{ value: string; group: string }> = [
   { value: "boutique", group: "Retail" },
   { value: "ferretería", group: "Retail" },
   { value: "plomería", group: "Servicios" },
+  { value: "veterinaria", group: "Veterinaria" },
+  { value: "estética canina", group: "Veterinaria" },
+  { value: "tours", group: "Tours" },
+  { value: "renta de lanchas", group: "Tours" },
+  { value: "pesca deportiva", group: "Tours" },
+  { value: "escuela", group: "Educación" },
+  { value: "academia", group: "Educación" },
+  { value: "clases de inglés", group: "Educación" },
+  { value: "inmobiliaria", group: "Inmobiliaria" },
+  { value: "bienes raíces", group: "Inmobiliaria" },
 ];
 
 export function resolvePlaybook(categoria: string): CategoryPlaybook {
   const q = normalize(categoria);
   if (!q) return playbookById("general");
 
-  for (const pb of CATEGORY_PLAYBOOKS) {
-    if (pb.id === "general") continue;
-    for (const alias of pb.aliases) {
-      const a = normalize(alias);
-      if (q === a || q.includes(a) || a.includes(q)) return pb;
-    }
-  }
+  const all = CATEGORY_PLAYBOOKS.filter((pb) => pb.id !== "general").flatMap((pb) =>
+    pb.aliases.map((alias) => ({ pb, a: normalize(alias) })),
+  );
+  const exact = all.find(({ a }) => a === q);
+  if (exact) return exact.pb;
+  // El alias más largo contenido en la búsqueda gana ("clinica veterinaria" > "clinica")
+  const padded = ` ${q.replace(/[^a-z0-9ñ]+/g, " ")} `;
+  const contained = all
+    .filter(({ a }) => padded.includes(` ${a} `))
+    .sort((x, y) => y.a.length - x.a.length)[0];
+  if (contained) return contained.pb;
+  // Búsqueda parcial ("veterinar"): solo si no es ambigua entre rubros
+  const partial = [...new Set(all.filter(({ a }) => q.length >= 4 && a.includes(q)).map(({ pb }) => pb))];
+  if (partial.length === 1) return partial[0];
   return playbookById("general");
 }
 

@@ -1,3 +1,4 @@
+import { isAllowedEmail } from "@/lib/auth/allowed";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -49,6 +50,14 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isAuthRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && !isAllowedEmail(user.email)) {
+    await supabase.auth.signOut();
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    redirectUrl.searchParams.set("razon", "no_invitado");
     return NextResponse.redirect(redirectUrl);
   }
 

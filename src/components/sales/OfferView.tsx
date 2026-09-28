@@ -23,6 +23,11 @@ export function OfferView({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [precios, setPrecios] = useState<
+    Partial<Record<PlanId, { instalacion?: number; mensual?: number }>>
+  >({});
+  const setPrecio = (id: PlanId, k: "instalacion" | "mensual", v: string) =>
+    setPrecios((s) => ({ ...s, [id]: { ...s[id], [k]: Number(v) } }));
   const ordered = [...offer.planes].sort(
     (a, b) => Number(b.recomendado) - Number(a.recomendado),
   );
@@ -38,12 +43,82 @@ export function OfferView({
     router.refresh();
   }
 
+  async function confirmar() {
+    setBusy("confirmar");
+    const res = await fetch("/api/sales/step", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ opportunity_id: opportunityId, action: "confirmar_oferta", precios }),
+    });
+    setBusy(null);
+    if (res.ok) router.refresh();
+  }
+
+  const am = offer.a_medida;
+
   return (
     <div className="flex flex-col gap-3">
+      {am && (
+        <div
+          className={`rounded-md border p-3 text-sm ${am.confirmado ? "border-border" : "border-warning/60 bg-warning/5"}`}
+        >
+          <p className="font-semibold">
+            Producto nuevo (fuera de catálogo) · complejidad {am.complejidad}
+            {am.confirmado ? " · precios confirmados ✓" : ""}
+          </p>
+          <p className="mt-1 text-muted">{am.que_es}</p>
+          <p className="mt-1 text-xs text-muted">
+            Lo que muestra la demo: {am.demo_enfoque}
+          </p>
+          {!am.confirmado && (
+            <>
+              <p className="mt-2 text-xs">
+                Precios de referencia {am.estimado_por === "gemini" ? "estimados por IA" : "por reglas"} según
+                complejidad y zona. Revísalos antes de mandar el cierre: el
+                flujo de venta se actualiza con lo que confirmes.
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                {ordered.map((p) => (
+                  <div key={p.id} className="rounded border border-border p-2 text-xs">
+                    <p className="font-semibold">{p.nombre}</p>
+                    <label className="mt-1 flex items-center gap-1">
+                      Instalación $
+                      <input
+                        type="number"
+                        value={precios[p.id]?.instalacion ?? p.instalacion}
+                        onChange={(e) => setPrecio(p.id, "instalacion", e.target.value)}
+                        className="w-20 rounded border border-border bg-background px-1 py-0.5"
+                      />
+                    </label>
+                    <label className="mt-1 flex items-center gap-1">
+                      Mensual $
+                      <input
+                        type="number"
+                        value={precios[p.id]?.mensual ?? p.mensual}
+                        onChange={(e) => setPrecio(p.id, "mensual", e.target.value)}
+                        className="w-20 rounded border border-border bg-background px-1 py-0.5"
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={confirmar}
+                className="mt-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {busy === "confirmar" ? "Guardando…" : "Confirmar precios"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {offer.prueba.dias > 0 && (
         <div className="rounded-md bg-accent/10 px-3 py-2 text-sm">
           <span className="font-bold text-accent">
-            {offer.prueba.dias} días de prueba gratis
+            {offer.prueba.dias} días {am ? "de piloto" : "de prueba"} gratis
           </span>{" "}
           — {offer.prueba.que_incluye}. {offer.prueba.condicion}
         </div>

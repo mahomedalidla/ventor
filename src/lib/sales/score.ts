@@ -54,7 +54,7 @@ export function scoreOpportunity(i: ScoreInput): OpportunityScore {
   const tier = pricingTierForZona(i.zona ?? "");
   if (tier === "riviera") parts.push({ pts: 10, razon: "Zona de ticket alto" });
   else if (tier === "pueblo_costa") parts.push({ pts: 6, razon: "Zona turística" });
-  if (playbook.id === "hoteleria" || playbook.id === "salud") {
+  if (["hoteleria", "salud", "inmobiliaria", "tours", "educacion"].includes(playbook.id)) {
     parts.push({ pts: 5, razon: "Rubro con ticket alto" });
   }
 
