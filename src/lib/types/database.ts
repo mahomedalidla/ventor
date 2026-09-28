@@ -80,6 +80,8 @@ export type Opportunity = {
   ultimo_contacto_at: string | null;
   prueba_inicio: string | null;
   prueba_fin: string | null;
+  ajustes: Record<string, unknown> | null;
+  plan_elegido: "esencial" | "recomendado" | "completo" | null;
   status: OpportunityStatus;
   resultado_notas: string | null;
   created_at: string;

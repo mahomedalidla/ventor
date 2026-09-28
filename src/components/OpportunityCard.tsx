@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ScoreBadge } from "@/components/sales/ScoreBadge";
+import type { NextAction } from "@/lib/sales/next-action";
 import type { Offer } from "@/lib/sales/offer";
 import type { OpportunityScore } from "@/lib/sales/score";
 import { ETAPA_LABEL, type SalesPlan } from "@/lib/sales/types";
@@ -25,10 +26,13 @@ function whenLabel(iso: string | null): string | null {
 export function OpportunityCard({
   opportunity,
   score,
+  action,
 }: {
   opportunity: OpportunityWithLead;
   score?: OpportunityScore;
+  action?: NextAction;
 }) {
+  const hot = action?.grupo === "ahora";
   const lead = opportunity.leads;
   const producto = opportunity.producto_sugerido_texto ?? "Producto por definir";
   const offer = opportunity.oferta as Offer | null;
@@ -39,7 +43,9 @@ export function OpportunityCard({
   return (
     <Link
       href={`/oportunidad/${opportunity.id}`}
-      className="block rounded-lg border border-border bg-surface p-4 transition hover:border-accent"
+      className={`block rounded-lg border bg-surface p-4 transition hover:border-accent ${
+        hot ? "border-2 border-warning" : "border-border"
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -53,6 +59,13 @@ export function OpportunityCard({
         </div>
         {score && <ScoreBadge score={score.score} nivel={score.nivel} />}
       </div>
+
+      {action && action.accion !== "esperar" && (
+        <div className={`mt-3 rounded-md px-3 py-2 ${hot ? "bg-warning/10" : "bg-background"}`}>
+          <p className={`text-sm font-bold ${hot ? "text-warning" : ""}`}>→ {action.titulo}</p>
+          <p className="text-xs text-muted">{action.porque}</p>
+        </div>
+      )}
 
       <p className="mt-3 text-sm font-semibold text-accent">{producto}</p>
       {score?.razones.length ? (

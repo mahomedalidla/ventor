@@ -1,9 +1,10 @@
+import { isPlanId } from "@/lib/sales/alcance";
 import type { Offer } from "@/lib/sales/offer";
 import type { SalesPlan } from "@/lib/sales/types";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-type Action = "enviado" | "respondio" | "ir_a" | "iniciar_prueba";
+type Action = "enviado" | "respondio" | "ir_a" | "iniciar_prueba" | "toque" | "elegir_plan";
 
 const DAY = 864e5;
 
@@ -16,7 +17,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
-  let body: { opportunity_id?: string; action?: Action; paso?: number };
+  let body: {
+    opportunity_id?: string;
+    action?: Action;
+    paso?: number;
+    etapa?: string;
+    plan?: string;
+  };
   try {
     body = await request.json();
   } catch {
@@ -33,6 +40,20 @@ export async function POST(request: Request) {
     .single();
   if (error || !op) {
     return NextResponse.json({ error: error?.message ?? "No encontrada" }, { status: 404 });
+  }
+
+  if (body.action === "elegir_plan") {
+    const offer = op.oferta as Offer | null;
+    const elegido = offer?.planes.find((p) => p.id === body.plan);
+    if (!isPlanId(body.plan) || !elegido) {
+      return NextResponse.json({ error: "Plan inválido" }, { status: 400 });
+    }
+    const { error: updErr } = await supabase
+      .from("opportunities")
+      .update({ plan_elegido: body.plan, precio_sugerido: elegido.instalacion })
+      .eq("id", op.id);
+    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true, plan: body.plan });
   }
 
   const plan = op.plan_venta as SalesPlan | null;
@@ -63,6 +84,13 @@ export async function POST(request: Request) {
     const target = Math.max(0, Math.min(body.paso ?? 0, pasos.length - 1));
     update.paso_actual = target;
     update.proximo_contacto_at = now.toISOString();
+  } else if (body.action === "toque") {
+    // Mensaje fuera del guion (reacción a una señal): cuenta como contacto y reprograma
+    const target = body.etapa ? idx(body.etapa) : -1;
+    if (target >= 0) update.paso_actual = target;
+    update.ultimo_contacto_at = now.toISOString();
+    update.proximo_contacto_at = new Date(now.getTime() + DAY).toISOString();
+    if (op.status === "pendiente") update.status = "contactado";
   } else if (body.action === "iniciar_prueba") {
     const offer = op.oferta as Offer | null;
     const dias = offer?.prueba?.dias || 7;

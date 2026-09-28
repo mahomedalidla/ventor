@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { OpportunityCard } from "@/components/OpportunityCard";
+import { engagementFrom, fetchEventsByOpportunity } from "@/lib/sales/engagement";
+import { nextAction, type Grupo } from "@/lib/sales/next-action";
+import type { Offer } from "@/lib/sales/offer";
 import { scoreOpportunity } from "@/lib/sales/score";
+import type { SalesPlan } from "@/lib/sales/types";
 import { createClient } from "@/lib/supabase/server";
 import {
   ORIGEN_LABELS,
@@ -60,54 +64,66 @@ export default async function DashboardPage({
     }
   }
 
+  const events = configured && opportunities.length
+    ? await fetchEventsByOpportunity(await createClient(), opportunities.map((o) => o.id))
+    : new Map();
+
   const scored = opportunities.map((op) => {
     const lead = op.leads as (typeof op.leads & {
       metadata?: Record<string, unknown> | null;
       signals?: Array<{ tipo_signal: string }>;
     }) | null;
     const deliverables = (op as { demo_deliverables?: unknown[] }).demo_deliverables ?? [];
-    return {
-      op,
-      score: scoreOpportunity({
-        tipo_negocio: lead?.tipo_negocio ?? null,
-        zona: lead?.zona ?? null,
-        telefono: lead?.telefono ?? null,
-        metadata: lead?.metadata ?? null,
-        signals: (lead?.signals ?? []).map((s) => s.tipo_signal),
-        status: op.status,
-        deliverables: deliverables.length,
-      }),
-    };
+    const eng = engagementFrom(events.get(op.id) ?? [], {
+      ultimoContacto: op.ultimo_contacto_at,
+      pruebaInicio: op.prueba_inicio,
+    });
+    const score = scoreOpportunity({
+      tipo_negocio: lead?.tipo_negocio ?? null,
+      zona: lead?.zona ?? null,
+      telefono: lead?.telefono ?? null,
+      metadata: lead?.metadata ?? null,
+      signals: (lead?.signals ?? []).map((s) => s.tipo_signal),
+      status: op.status,
+      deliverables: deliverables.length,
+      engagement: eng,
+    });
+    const offer = op.oferta as Offer | null;
+    const action = nextAction({
+      nombre: lead?.nombre ?? "su negocio",
+      status: op.status,
+      score: score.score,
+      plan: op.plan_venta as SalesPlan | null,
+      pasoActual: op.paso_actual ?? 0,
+      proximoContacto: op.proximo_contacto_at,
+      ultimoContacto: op.ultimo_contacto_at,
+      pruebaInicio: op.prueba_inicio,
+      pruebaFin: op.prueba_fin,
+      diasPrueba: offer?.prueba?.dias ?? 7,
+      hasDeliverable: deliverables.length > 0,
+      eng,
+    });
+    return { op, score, action, eng };
   });
 
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const byScore = (a: (typeof scored)[number], b: (typeof scored)[number]) =>
-    b.score.score - a.score.score;
-  const due = (o: OpportunityWithLead) =>
-    o.proximo_contacto_at && new Date(o.proximo_contacto_at) <= endOfToday;
-  const inTrial = (o: OpportunityWithLead) =>
-    Boolean(o.prueba_fin && o.prueba_fin >= todayStr);
-
-  const hoy = scored.filter(({ op }) => due(op)).sort(byScore);
-  const prueba = scored.filter(({ op }) => !due(op) && inTrial(op));
-  const nuevas = scored
-    .filter(({ op }) => !due(op) && !inTrial(op) && !op.proximo_contacto_at)
-    .sort(byScore);
-  const programadas = scored
-    .filter(({ op }) => !due(op) && !inTrial(op) && op.proximo_contacto_at)
-    .sort(
-      (a, b) =>
-        new Date(a.op.proximo_contacto_at!).getTime() -
-        new Date(b.op.proximo_contacto_at!).getTime(),
-    );
+  const byPriority = (a: (typeof scored)[number], b: (typeof scored)[number]) =>
+    b.action.prioridad - a.action.prioridad;
+  const inGroup = (g: Grupo) => scored.filter((s) => s.action.grupo === g).sort(byPriority);
+  const ahora = inGroup("ahora");
+  const hoy = inGroup("hoy");
+  const programadas = inGroup("programadas").sort(
+    (a, b) =>
+      new Date(a.op.proximo_contacto_at ?? 0).getTime() -
+      new Date(b.op.proximo_contacto_at ?? 0).getTime(),
+  );
+  const nuevas = inGroup("nuevas");
 
   const groups = [
-    { id: "hoy", title: "Toca hoy", hint: "Seguimientos vencidos o de hoy, los más interesantes primero.", items: hoy },
-    { id: "prueba", title: "En prueba", hint: "Están probando gratis: cuida la revisión y el cierre.", items: prueba },
-    { id: "nuevas", title: "Nuevas por abrir", hint: "Ordenadas de más a menos interesante. Empieza por arriba.", items: nuevas },
-    { id: "programadas", title: "Programadas", hint: "Próximos seguimientos por fecha.", items: programadas },
+    { id: "ahora", title: "🔥 Ahora", hint: "Señales en vivo: abrió la demo, le llegan clientes o se acaba la prueba. Escríbele ya.", items: ahora },
+    { id: "hoy", title: "Toca hoy", hint: "Seguimientos del flujo, los más interesantes primero.", items: hoy },
+    { id: "prueba", title: "En prueba", hint: "Probando gratis. Te avisamos aquí si algo requiere acción.", items: inGroup("prueba") },
+    { id: "nuevas", title: "Nuevas por abrir", hint: "De más a menos interesante. Empieza por arriba.", items: nuevas },
+    { id: "programadas", title: "Programadas", hint: "Esperando su momento; suben solas si abren la demo.", items: programadas },
   ];
 
   return (
@@ -115,7 +131,9 @@ export default async function DashboardPage({
       <div>
         <h1 className="text-xl font-bold tracking-tight">Oportunidades</h1>
         <p className="mt-1 text-sm text-muted">
-          {hoy.length
+          {ahora.length
+            ? `${ahora.length} oportunidad${ahora.length === 1 ? "" : "es"} caliente${ahora.length === 1 ? "" : "s"} ahora mismo. Empieza por ahí.`
+            : hoy.length
             ? `Hoy te tocan ${hoy.length} contacto${hoy.length === 1 ? "" : "s"}.`
             : nuevas.length
               ? `Nada vencido. Abre ${Math.min(5, nuevas.length)} nuevas de las más calientes.`
@@ -191,9 +209,9 @@ export default async function DashboardPage({
                 <p className="text-xs text-muted">{g.hint}</p>
               </div>
               <ul className="flex flex-col gap-3">
-                {g.items.map(({ op, score }) => (
+                {g.items.map(({ op, score, action }) => (
                   <li key={op.id}>
-                    <OpportunityCard opportunity={op} score={score} />
+                    <OpportunityCard opportunity={op} score={score} action={action} />
                   </li>
                 ))}
               </ul>

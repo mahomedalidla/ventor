@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 const links = [
   { href: "/", label: "Oportunidades" },
   { href: "/leads/nuevo", label: "Nuevo lead" },
+  { href: "/resultados", label: "Resultados" },
   { href: "/catalogo", label: "Catálogo" },
   { href: "/aprendizajes", label: "Aprendizajes" },
 ];
@@ -25,11 +26,11 @@ export function AppNav() {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur">
       <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-muted">
             Vendor
           </p>
-          <nav className="mt-1 flex gap-3 text-sm font-semibold">
+          <nav className="mt-1 flex gap-3 overflow-x-auto whitespace-nowrap text-sm font-semibold">
             {links.map((link) => {
               const active =
                 link.href === "/"

@@ -1,4 +1,5 @@
 import type { DemoAssets } from "@/lib/demo/assets";
+import type { Secciones } from "@/lib/sales/alcance";
 
 export type Benefit = { titulo: string; texto: string };
 export type FaqItem = { duda: string; respuesta: string };
@@ -18,6 +19,8 @@ export type DeliverableData = {
   wa_url: string;
   cta_label: string;
   assets: DemoAssets;
+  secciones: Secciones;
+  con_bot: boolean;
 };
 
 export function esc(s: string | null | undefined): string {
@@ -75,11 +78,16 @@ function localBusinessLd(d: DeliverableData): Record<string, unknown> {
 }
 
 export function landingTemplate(d: DeliverableData): string {
+  const s = d.secciones;
   const hero = d.assets.photos[0]?.url;
-  const gallery = d.assets.photos.slice(1, 7);
-  const reviews = d.assets.reviews
-    .filter((r) => r.text.trim().length > 20 && (r.rating ?? 5) >= 4)
-    .slice(0, 8);
+  const gallery = s.galeria ? d.assets.photos.slice(1, 7) : [];
+  const reviews = s.resenas
+    ? d.assets.reviews
+        .filter((r) => r.text.trim().length > 20 && (r.rating ?? 5) >= 4)
+        .slice(0, 8)
+    : [];
+  const beneficios = s.beneficios ? d.beneficios : [];
+  const faq = s.faq ? d.faq : [];
   const logo = d.assets.logo_url
     ? `<img src="${esc(d.assets.logo_url)}" alt="${esc(d.nombre)}" class="logo-img">`
     : `<span class="logo-mono">${esc(initials(d.nombre))}</span>`;
@@ -187,15 +195,15 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 40px}
   </div>
 </header>
 
-${d.beneficios.length ? `<section>
-  <div class="pains">${d.beneficios
+${beneficios.length ? `<section>
+  <div class="pains">${beneficios
     .map(
       (b, i) => `<article class="pain reveal tilt"><div class="num">0${i + 1}</div><div class="after">${esc(b.titulo)}</div><div class="txt">${esc(b.texto)}</div></article>`,
     )
     .join("")}</div>
 </section>` : ""}
 
-${d.assets.rating ? `<section class="reveal">
+${s.stats && d.assets.rating ? `<section class="reveal">
   <div class="stats">
     <div class="stat"><b data-count="${esc(String(d.assets.rating))}" data-dec="1">0</b>calificación en Google</div>
     <div class="stat"><b data-count="${esc(String(d.assets.reviews_count ?? 0))}">0</b>personas ya opinaron</div>
@@ -222,10 +230,17 @@ ${reviews.length ? `<div class="marquee"><div class="track">${[...reviews, ...re
     )
     .join("")}</div></div>` : ""}
 
-${d.faq.length ? `<section class="faq">
+${d.con_bot ? `<section class="final reveal">
+  <div class="eyebrow">Atención 24/7</div>
+  <h2>Te contestamos al instante, a cualquier hora</h2>
+  <p style="opacity:.8;max-width:520px;margin:12px auto 22px">Escríbenos por WhatsApp y nuestro asistente te atiende en segundos.</p>
+  <a class="btn" href="${esc(d.wa_url)}" target="_blank" rel="noopener">${esc(d.cta_label)} →</a>
+</section>` : ""}
+
+${faq.length ? `<section class="faq">
   <div class="eyebrow reveal">Preguntas frecuentes</div>
   <h2 class="title reveal">Antes de que preguntes</h2>
-  ${d.faq.map((f) => `<details class="reveal"><summary>${esc(f.duda)}</summary><p>${esc(f.respuesta)}</p></details>`).join("")}
+  ${faq.map((f) => `<details class="reveal"><summary>${esc(f.duda)}</summary><p>${esc(f.respuesta)}</p></details>`).join("")}
 </section>` : ""}
 
 <section>

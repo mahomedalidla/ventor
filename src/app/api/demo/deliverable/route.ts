@@ -4,7 +4,9 @@ import {
   pickDeliverableType,
   type DeliverableTipo,
 } from "@/lib/demo/deliverable";
+import { cleanAjustes } from "@/lib/demo/ajustes";
 import { isDemoMockup } from "@/lib/demo/types";
+import { alcanceDe, isPlanId, PLAN_NOMBRE, type PlanId } from "@/lib/sales/alcance";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -34,6 +36,7 @@ export async function POST(request: Request) {
     opportunity_id?: string;
     tipo?: DeliverableTipo | "auto";
     refresh_assets?: boolean;
+    plan?: string;
   };
   try {
     body = await request.json();
@@ -47,7 +50,7 @@ export async function POST(request: Request) {
   const { data: op, error } = await supabase
     .from("opportunities")
     .select(
-      "id, producto_sugerido_texto, demo_mockup, products(nombre), leads(id, nombre, tipo_negocio, zona, telefono, google_place_id, perfil_url, metadata)",
+      "id, producto_sugerido_texto, demo_mockup, ajustes, plan_elegido, products(nombre), leads(id, nombre, tipo_negocio, zona, telefono, google_place_id, perfil_url, metadata)",
     )
     .eq("id", body.opportunity_id)
     .single();
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
 
   const { data: existing } = await supabase
     .from("demo_deliverables")
-    .select("tipo, public_slug, assets, generated_at")
+    .select("tipo, public_slug, assets, generated_at, html")
     .eq("opportunity_id", op.id);
 
   const sameTipo = existing?.find((d) => d.tipo === tipo);
@@ -92,13 +95,31 @@ export async function POST(request: Request) {
       ? (reusable.assets as DemoAssets)
       : await gatherDemoAssets(supabase, lead);
 
+  const aj = cleanAjustes(op.ajustes);
+  const plan: PlanId = isPlanId(body.plan)
+    ? body.plan
+    : isPlanId(op.plan_elegido)
+      ? op.plan_elegido
+      : "recomendado";
+
   const { html, engine } = await buildDeliverable({
-    lead,
+    lead: {
+      ...lead,
+      nombre: aj.nombre ?? lead.nombre,
+      telefono: aj.whatsapp ?? lead.telefono,
+    },
     signals: signals ?? [],
     producto,
     mockup: isDemoMockup(op.demo_mockup) ? op.demo_mockup : null,
-    assets,
+    assets: {
+      ...assets,
+      hours: aj.horario ? [aj.horario] : assets.hours,
+      address: aj.direccion ?? assets.address,
+      theme_color: aj.color ?? assets.theme_color,
+    },
     tipo,
+    alcance: alcanceDe(tipo, plan),
+    notas_dueno: aj.notas ?? null,
   });
 
   const slug =
@@ -113,7 +134,11 @@ export async function POST(request: Request) {
       public_slug: slug,
       assets,
       engine,
+      plan_id: plan,
+      html_anterior: sameTipo?.html ?? null,
+      ultimo_cambio: sameTipo ? `Regenerada (plan ${PLAN_NOMBRE[plan]})` : null,
       generated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
     { onConflict: "opportunity_id,tipo" },
   );
@@ -126,6 +151,7 @@ export async function POST(request: Request) {
     slug,
     tipo,
     engine,
+    plan,
     fotos: assets.photos.length,
     logo: Boolean(assets.logo_url),
   });

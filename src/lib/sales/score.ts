@@ -9,6 +9,7 @@ export type ScoreInput = {
   signals: string[];
   status: string;
   deliverables: number;
+  engagement?: { duenoVistas: number; contactos: number };
 };
 
 export type OpportunityScore = {
@@ -62,6 +63,13 @@ export function scoreOpportunity(i: ScoreInput): OpportunityScore {
   else parts.push({ pts: -20, razon: "Sin teléfono" });
   if (i.deliverables > 0) parts.push({ pts: 5, razon: "Demo lista para enviar" });
   if (i.status === "contactado") parts.push({ pts: 6, razon: "Ya en conversación" });
+
+  // Interés demostrado (lo que más predice el cierre)
+  const vistas = i.engagement?.duenoVistas ?? 0;
+  if (vistas >= 3) parts.push({ pts: 20, razon: `Vio su demo ${vistas} veces` });
+  else if (vistas > 0) parts.push({ pts: 12, razon: "Abrió su demo" });
+  const contactos = i.engagement?.contactos ?? 0;
+  if (contactos > 0) parts.push({ pts: 15, razon: `Ya le llegan clientes (${contactos})` });
 
   const score = Math.max(0, Math.min(100, parts.reduce((s, p) => s + p.pts, 0)));
   const razones = parts

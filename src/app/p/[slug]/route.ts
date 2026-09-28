@@ -37,7 +37,9 @@ export async function GET(
   const referrer = request.headers.get("referer");
   const src = cleanSrc(url.searchParams.get("src")) ?? srcFromReferrer(referrer);
 
-  if (!preview && !download && !isBot(ua)) {
+  const internal = /(?:^|;\s*)sb-[^=]+-auth-token/.test(request.headers.get("cookie") ?? "");
+
+  if (!preview && !download && !internal && !isBot(ua)) {
     const visitor = visitorId(request);
     after(async () => {
       await supabase.rpc("track_demo_event", {
@@ -51,7 +53,7 @@ export async function GET(
     });
   }
 
-  const html = preview
+  const html = preview || (internal && !download)
     ? (row.demo_html as string)
     : injectTracker(row.demo_html as string, `${url.origin}/api/t`, slug, download ? "dominio" : src);
 

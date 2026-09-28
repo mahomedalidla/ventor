@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { waLink } from "@/lib/phone";
+import { renderMessage } from "@/lib/sales/render";
 import { ETAPA_LABEL, type SalesPlan } from "@/lib/sales/types";
 
 function when(iso: string | null): string | null {
@@ -64,15 +65,11 @@ export function SalesFlow({
   }
 
   function render(msg: string, adjunto: "landing" | "whatsapp" | null) {
-    const slug = (adjunto && slugs[adjunto]) || slugs.landing || slugs.whatsapp;
-    const mainSlug = slugs.landing || slugs.whatsapp;
-    const link = slug && origin ? `${origin}/p/${slug}?src=demo` : "[genera la demo primero]";
-    const reporte = mainSlug && origin ? `${origin}/p/${mainSlug}/reporte` : "[genera la demo primero]";
-    return msg
-      .replace(/\{link\}/g, link)
-      .replace(/\{reporte\}/g, reporte)
-      .replace(/\{visitas\}/g, String(stats?.visitas ?? 0))
-      .replace(/\{clics_whatsapp\}/g, String(stats?.whatsapp ?? 0));
+    return renderMessage(
+      msg,
+      { origin, slugs, visitas: stats?.visitas ?? 0, clicsWhatsapp: stats?.whatsapp ?? 0 },
+      adjunto,
+    );
   }
 
   if (!plan?.pasos?.length) {

@@ -31,6 +31,18 @@ export async function fetchDemoStats(
   return summarize(data as StatRow[]);
 }
 
+/** Suma de todos los entregables de una oportunidad (landing + demo WhatsApp). */
+export async function fetchStatsForSlugs(
+  supabase: SupabaseClient,
+  slugs: string[],
+): Promise<DemoStats | null> {
+  const results = await Promise.all(
+    slugs.map((s) => supabase.rpc("get_public_demo_stats", { p_slug: s })),
+  );
+  const rows = results.flatMap((r) => (r.error ? [] : ((r.data ?? []) as StatRow[])));
+  return rows.length ? summarize(rows) : null;
+}
+
 export function emptyStats(nombre: string): DemoStats {
   return summarize([{ nombre, tipo: null, src: "directo", dia: null, eventos: 0, personas: 0 }]);
 }

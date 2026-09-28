@@ -11,10 +11,16 @@ import { ScoreBadge } from "@/components/sales/ScoreBadge";
 import { OfferView } from "@/components/sales/OfferView";
 import { SalesFlow } from "@/components/sales/SalesFlow";
 import { TrialActivation } from "@/components/sales/TrialActivation";
-import { fetchDemoStats } from "@/lib/stats";
+import { NextActionCard } from "@/components/sales/NextActionCard";
+import { AjustesPanel } from "@/components/AjustesPanel";
+import { fetchStatsForSlugs } from "@/lib/stats";
 import { resolvePlaybook } from "@/lib/categories/playbooks";
+import { cleanAjustes } from "@/lib/demo/ajustes";
 import { pickDeliverableType } from "@/lib/demo/deliverable";
 import { isDemoMockup } from "@/lib/demo/types";
+import { isPlanId } from "@/lib/sales/alcance";
+import { engagementFrom, fetchEventsByOpportunity } from "@/lib/sales/engagement";
+import { nextAction } from "@/lib/sales/next-action";
 import type { Offer } from "@/lib/sales/offer";
 import { scoreOpportunity } from "@/lib/sales/score";
 import type { SalesPlan } from "@/lib/sales/types";
@@ -73,14 +79,21 @@ export default async function OportunidadPage({
   const playbook = resolvePlaybook(lead?.tipo_negocio ?? "general");
   const offer = (data.oferta ?? null) as Offer | null;
   const plan = (data.plan_venta ?? null) as SalesPlan | null;
+  const ajustes = cleanAjustes(data.ajustes);
 
-  const [{ data: deliverables }, { data: signals }] = await Promise.all([
+  const [{ data: deliverables }, { data: signals }, events] = await Promise.all([
     supabase
       .from("demo_deliverables")
-      .select("tipo, public_slug, generated_at, engine")
+      .select("tipo, public_slug, generated_at, updated_at, engine, plan_id, ultimo_cambio")
       .eq("opportunity_id", id),
     supabase.from("signals").select("tipo_signal").eq("lead_id", lead?.id ?? ""),
+    fetchEventsByOpportunity(supabase, [id]),
   ]);
+
+  const eng = engagementFrom(events.get(id) ?? [], {
+    ultimoContacto: data.ultimo_contacto_at ?? null,
+    pruebaInicio: data.prueba_inicio ?? null,
+  });
 
   const score = scoreOpportunity({
     tipo_negocio: lead?.tipo_negocio ?? null,
@@ -90,13 +103,34 @@ export default async function OportunidadPage({
     signals: (signals ?? []).map((s) => s.tipo_signal),
     status: data.status,
     deliverables: deliverables?.length ?? 0,
+    engagement: eng,
   });
 
   const slugs = Object.fromEntries(
     (deliverables ?? []).map((d) => [d.tipo, d.public_slug]),
   ) as Partial<Record<"landing" | "whatsapp", string>>;
   const mainSlug = slugs.landing ?? slugs.whatsapp ?? null;
-  const stats = mainSlug ? await fetchDemoStats(supabase, mainSlug) : null;
+  const stats = await fetchStatsForSlugs(
+    supabase,
+    Object.values(slugs).filter((s): s is string => Boolean(s)),
+  );
+  const planElegido = isPlanId(data.plan_elegido) ? data.plan_elegido : null;
+
+  const action = nextAction({
+    nombre: lead?.nombre ?? "su negocio",
+    status: data.status,
+    score: score.score,
+    plan,
+    pasoActual: data.paso_actual ?? 0,
+    proximoContacto: data.proximo_contacto_at ?? null,
+    ultimoContacto: data.ultimo_contacto_at ?? null,
+    pruebaInicio: data.prueba_inicio ?? null,
+    pruebaFin: data.prueba_fin ?? null,
+    diasPrueba: offer?.prueba.dias ?? 7,
+    hasDeliverable: (deliverables?.length ?? 0) > 0,
+    eng,
+  });
+  const closed = data.status === "cerrado" || data.status === "rechazado";
 
   return (
     <div className="flex flex-col gap-5">
@@ -122,6 +156,17 @@ export default async function OportunidadPage({
         )}
       </div>
 
+      {!closed && (
+        <NextActionCard
+          opportunityId={data.id}
+          telefono={lead?.telefono ?? null}
+          action={action}
+          slugs={slugs}
+          visitas={stats?.visitas ?? 0}
+          clicsWhatsapp={stats?.whatsapp ?? 0}
+        />
+      )}
+
       <section className="rounded-lg border border-border bg-surface p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           Qué ofrecer
@@ -130,7 +175,7 @@ export default async function OportunidadPage({
         <p className="mt-2 text-sm text-muted">{data.razon}</p>
         <div className="mt-3">
           {offer ? (
-            <OfferView offer={offer} />
+            <OfferView offer={offer} opportunityId={data.id} planElegido={planElegido} />
           ) : (
             <p className="text-xs text-muted">
               Sin oferta estructurada todavía. Genérala en “Flujo de venta”.
@@ -169,7 +214,7 @@ export default async function OportunidadPage({
         />
       </section>
 
-      <section className="rounded-lg border border-border bg-surface p-4">
+      <section id="demo" className="scroll-mt-20 rounded-lg border border-border bg-surface p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           Demo para el cliente
         </p>
@@ -184,7 +229,24 @@ export default async function OportunidadPage({
             telefono={lead?.telefono ?? null}
             deliverables={(deliverables ?? []) as DeliverableSummary[]}
             suggested={pickDeliverableType(producto)}
+            planElegido={planElegido}
           />
+          <details className="mt-3 rounded-md border border-border p-3">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Ajustes del dueño
+              {Object.keys(ajustes).length
+                ? ` (${Object.keys(ajustes).length})`
+                : " · cambiar WhatsApp, horario, nombre…"}
+            </summary>
+            <div className="mt-3">
+              <AjustesPanel
+                opportunityId={data.id}
+                initial={ajustes}
+                detectado={{ nombre: lead?.nombre ?? "", telefono: lead?.telefono ?? null }}
+                hasDeliverables={(deliverables?.length ?? 0) > 0}
+              />
+            </div>
+          </details>
           <Link
             href={`/catalogo/conversion#${playbook.id}`}
             className="mt-2 inline-block text-xs font-medium text-accent underline-offset-2 hover:underline"

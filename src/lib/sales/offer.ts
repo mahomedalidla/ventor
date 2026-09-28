@@ -104,12 +104,18 @@ export function buildOffer(input: {
 
   const incluye: Record<OfferLine, Record<Plan["id"], string[]>> = {
     landing: {
-      esencial: [f.web, "Dominio .com + hosting", "Botón de WhatsApp y Cómo llegar"],
-      recomendado: [f.web, "Dominio .com + hosting", "Perfil de Google optimizado", "Cambios mensuales incluidos"],
-      completo: [f.web, "Todo lo del Recomendado", f.bot, "Reporte mensual de clientes"],
+      esencial: [f.web, "Horario, ubicación y Cómo llegar", "Botón de WhatsApp", "Dominio .com + hosting"],
+      recomendado: [
+        "Todo lo del Esencial",
+        "Galería de fotos y reseñas reales",
+        "Preguntas frecuentes resueltas",
+        "Perfil de Google optimizado",
+        "Cambios mensuales incluidos",
+      ],
+      completo: ["Todo lo del Recomendado", f.bot, "Reporte mensual de clientes"],
     },
     whatsapp: {
-      esencial: ["Respuestas automáticas 24/7", "Menú de opciones y horarios", "Ubicación en un toque"],
+      esencial: ["Respuestas automáticas 24/7", "Menú de opciones, horario y ubicación"],
       recomendado: [f.bot, "Resumen de cada cliente para usted", "Ajustes mensuales incluidos"],
       completo: [f.bot, "Página web con su marca", "Recordatorios y seguimiento automático", "Reporte mensual"],
     },

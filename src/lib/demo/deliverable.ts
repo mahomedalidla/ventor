@@ -16,6 +16,7 @@ import {
 } from "@/lib/demo/templates";
 import type { DemoMockup } from "@/lib/demo/types";
 import { waLink } from "@/lib/phone";
+import type { Alcance } from "@/lib/sales/alcance";
 
 export type DeliverableTipo = "landing" | "whatsapp";
 
@@ -33,6 +34,8 @@ export type DeliverableInput = {
   mockup: DemoMockup | null;
   assets: DemoAssets;
   tipo: DeliverableTipo;
+  alcance: Alcance;
+  notas_dueno: string | null;
 };
 
 export type DeliverableResult = {
@@ -121,6 +124,12 @@ ${input.tipo === "landing" ? LANDING_RULES : WHATSAPP_RULES}
 
 ${INTERNAL_RULE}
 
+ALCANCE DEL PLAN (lo que se muestra es exactamente lo que se entrega):
+- Construye SOLO lo de "alcance_plan.incluye". NO construyas nada de "alcance_plan.no_incluye", aunque la anatomía del rubro lo sugiera.
+- En plan Esencial los efectos WOW se mantienen, pero la página es corta y enfocada: menos secciones, mismo impacto visual.
+
+DATOS DEL DUEÑO: "datos_confirmados_por_el_dueno" son hechos verificados; tienen prioridad sobre Google y puedes afirmarlos.
+
 Reglas de contenido:
 - Usa el NOMBRE REAL del negocio, su zona y su teléfono real en los enlaces de WhatsApp (usa exactamente la URL wa_url dada).
 - Imágenes: usa ÚNICAMENTE las URLs dadas en "imagenes" y "logo". Nunca inventes URLs de imágenes ni uses placeholders/unsplash. Si no hay logo, crea un logotipo tipográfico elegante con las iniciales.
@@ -136,6 +145,12 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
     {
       tipo_entregable: input.tipo,
       producto_que_vendemos: input.producto,
+      alcance_plan: {
+        plan: input.alcance.plan,
+        incluye: input.alcance.incluye,
+        no_incluye: input.alcance.no_incluye,
+      },
+      datos_confirmados_por_el_dueno: input.notas_dueno,
       negocio: {
         nombre: lead.nombre,
         rubro: lead.tipo_negocio,
@@ -188,6 +203,22 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
     2,
   );
 
+  const html = extractHtml(await geminiText(system, user, 0.9, 32000));
+  if (!html) throw new Error("HTML inválido o truncado");
+  return html;
+}
+
+export function geminiAvailable(): boolean {
+  const key = process.env.GEMINI_API_KEY;
+  return Boolean(key && !key.includes("your_gemini"));
+}
+
+async function geminiText(
+  system: string,
+  user: string,
+  temperature: number,
+  maxOutputTokens: number,
+): Promise<string> {
   const model =
     process.env.GEMINI_DEMO_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const res = await fetch(
@@ -199,8 +230,8 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig: {
-          temperature: 0.9,
-          maxOutputTokens: 32000,
+          temperature,
+          maxOutputTokens,
           responseMimeType: "text/plain",
         },
       }),
@@ -218,11 +249,28 @@ ${input.tipo === "landing" ? `- SEO LOCAL listo para cuando viva en su dominio: 
     ?.filter((p) => !p.thought)
     .map((p) => p.text ?? "")
     .join("");
-  if (!raw) throw new Error("Gemini sin HTML");
+  if (!raw) throw new Error("Gemini sin respuesta");
+  return raw;
+}
 
-  const html = extractHtml(raw);
-  if (!html) throw new Error("HTML inválido o truncado");
-  return html;
+const EDIT_SYSTEM = `Eres un frontend senior editando la página REAL de un negocio local (HTML autocontenido).
+Aplica SOLO el cambio pedido. Conserva TODO lo demás igual: estructura, textos, estilos, animaciones, scripts, SEO, enlaces.
+- Imágenes: solo puedes usar URLs que ya estén en el HTML o en "imagenes_permitidas". Nunca inventes URLs.
+- Si piden quitar algo, quítalo limpio (sin huecos ni enlaces rotos). Si piden agregar, respeta el estilo existente.
+- No menciones problemas internos del negocio ni afirmes datos que no te den.
+- Devuelve el HTML COMPLETO final empezando con <!doctype html>. Sin markdown ni explicación.`;
+
+/** Edita un entregable existente con una instrucción en lenguaje natural. */
+export async function editDeliverableHtml(
+  html: string,
+  instruccion: string,
+  imagenes: string[],
+): Promise<string> {
+  const user = JSON.stringify({ instruccion, imagenes_permitidas: imagenes }, null, 2) +
+    "\n\nHTML ACTUAL:\n" + html;
+  const out = extractHtml(await geminiText(EDIT_SYSTEM, user, 0.3, 60000));
+  if (!out || out.length < html.length * 0.4) throw new Error("La edición salió incompleta; intenta de nuevo");
+  return out;
 }
 
 function extractHtml(raw: string): string | null {
@@ -333,14 +381,45 @@ function baseData(input: DeliverableInput): DeliverableData {
     wa_url: waLink(input.lead.telefono, webPrefill(m)),
     cta_label: cta,
     assets: input.assets,
+    secciones: input.alcance.secciones,
+    con_bot: input.alcance.plan === "completo",
   };
 }
 
 function templateHtml(input: DeliverableInput): string {
   const d = baseData(input);
   if (input.tipo === "landing") return landingTemplate(d);
-  const { script, owner, toast } = chatScript(d);
+  const { script, owner, toast } =
+    input.alcance.chat === "basico" ? basicChatScript(d) : chatScript(d);
   return whatsappTemplate(d, script, owner, toast);
+}
+
+function basicChatScript(d: DeliverableData): {
+  script: ChatStep[];
+  owner: string[];
+  toast: string;
+} {
+  const horario = d.assets.hours[0] ?? "Consúltenos por aquí";
+  return {
+    script: [
+      { from: "cliente", text: "Hola, buenas" },
+      {
+        from: "bot",
+        text: `¡Hola! Bienvenido a ${d.nombre} 👋\n¿En qué le ayudamos?`,
+        buttons: [d.offer_label, "Horario", "Ubicación"],
+      },
+      { from: "cliente", text: "Horario" },
+      { from: "bot", text: `🕒 ${horario}\n¿Le comparto la ubicación?`, buttons: ["Sí, ubicación"] },
+      { from: "cliente", text: "Sí, ubicación" },
+      { from: "bot", text: `📍 ${d.assets.address ?? d.zona}\nLo esperamos. En un momento le atiende una persona.` },
+    ],
+    owner: [
+      "Nadie se queda sin respuesta, ni de noche",
+      "Horario, ubicación y opciones sin contestar a mano",
+      "Usted solo atiende a quien ya va decidido",
+    ],
+    toast: `Cliente atendido automáticamente en ${d.nombre}`,
+  };
 }
 
 function chatScript(d: DeliverableData): {
